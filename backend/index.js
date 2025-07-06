@@ -33,7 +33,6 @@ const JWT_SECRET = 'supersecretkey';         // вынести в .env на пр
 const JWT_TTL    = '30d';
 
 
-
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -41,11 +40,7 @@ const pool = new pg.Pool({
   }
 });
 
-
-
-
-
-const db = {
+export const db = {
   query: (text, params) => pool.query(text, params),
 };
 
