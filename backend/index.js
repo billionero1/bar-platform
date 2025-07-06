@@ -40,9 +40,10 @@ const pool = new pg.Pool({
   }
 });
 
-export const db = {
+const db = {
   query: (text, params) => pool.query(text, params),
 };
+
 
 /* ——————————————————————  DB INIT  ——————————————————————— */
 await db.query(`
