@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 
 
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const api = import.meta.env.VITE_API_URL;
 
 // Тип одного ингредиента
 type Ingredient = {
