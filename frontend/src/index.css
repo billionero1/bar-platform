@@ -1,0 +1,19 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────
+   Базовые глобальные стили (без лишних паддингов) */
+@layer base {
+  /* всегда занимаем всю высоту вьюпорта */
+html, body, #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;          /* ⬅ запрет любого скролла у «каркаса» */
+}
+  /* _только_ фикс-хедеру нужен отступ под «чёлку» / динамик */
+  header {
+    padding-top: env(safe-area-inset-top);
+  }
+}

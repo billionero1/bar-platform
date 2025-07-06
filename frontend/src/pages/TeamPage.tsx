@@ -1,0 +1,162 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
+
+const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+
+type Employee = {
+  id: number;
+  name: string;
+  phone: string;
+  isAdmin: boolean;
+  mustChangePw?: boolean;
+};
+
+export default function TeamPage() {
+  const { isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const [list, setList] = useState<Employee[]>([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<string>('');
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${api}/team`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (res.status === 401) return logout();
+        const data = await res.json();
+        if (!cancelled) setList(data);
+      } catch {
+        if (!cancelled) setList([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [logout]);
+
+  // Фильтрация
+  const filtered = list.filter(i =>
+    i.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Удаление
+  async function remove(id: number) {
+    setPendingDelete(id);
+    try {
+      const res = await fetch(`${api}/team/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (res.ok) {
+        setList(list.filter(e => e.id !== id));
+        setToast('Пользователь удалён');
+        setTimeout(() => setToast(''), 2000);
+      } else {
+        setToast('Не удалось удалить');
+        setTimeout(() => setToast(''), 2000);
+      }
+    } finally {
+      setPendingDelete(null);
+    }
+  }
+
+  // Менеджеры всегда вверху
+  const sorted = [...filtered].sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin));
+
+  // Кастомное "confirm" через тост (как у ингредиентов)
+  function handleDelete(e: React.MouseEvent, id: number) {
+    e.stopPropagation();
+    setPendingDelete(id);
+    setToast('Нажмите еще раз для подтверждения удаления');
+    setTimeout(() => {
+      setToast('');
+      setPendingDelete(null);
+    }, 2000);
+  }
+
+  return (
+    <div className="h-screen flex flex-col p-4">
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-700 text-white px-6 py-2 rounded-xl shadow-xl">
+          {toast}
+        </div>
+      )}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(56px+1rem)]">
+        <input
+          type="text"
+          placeholder="Поиск сотрудников…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full mb-2 rounded border px-3 py-2"
+        />
+
+        {loading ? (
+          <p className="text-center text-sm text-gray-500">Загрузка…</p>
+        ) : (
+          <ul className="space-y-1">
+            {sorted.length === 0 ? (
+              <li className="text-center text-gray-500 py-4">Ничего не найдено</li>
+            ) : (
+              sorted.map(e => (
+                <li
+                  key={e.id}
+                  className="flex items-center justify-between rounded border p-3 cursor-pointer hover:bg-gray-50"
+                  onClick={() => navigate(`/team/${e.id}`)}
+                >
+                  <div>
+                    <p className="font-medium break-words whitespace-normal">
+                      {e.name}
+                      {e.isAdmin && (
+                        <span className="ml-2 text-xs text-blue-600">(менеджер)</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">{e.phone}</p>
+                    {e.mustChangePw && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        ожидает регистрацию
+                      </p>
+                    )}
+                  </div>
+                  {isAdmin && (
+                    <button
+                      onClick={ev => {
+                        if (pendingDelete === e.id) {
+                          remove(e.id);
+                        } else {
+                          handleDelete(ev, e.id);
+                        }
+                      }}
+                      disabled={pendingDelete !== null && pendingDelete !== e.id}
+                      className={`ml-2 text-red-600 hover:text-red-800 text-xl transition-all ${
+                        pendingDelete === e.id ? 'animate-bounce' : ''
+                      }`}
+                      title="Удалить"
+                    >🗑</button>
+                  )}
+                </li>
+              ))
+            )}
+          </ul>
+        )}
+      </div>
+
+      {/* Кнопка фиксирована снизу как у Preparations */}
+      {isAdmin && (
+        <button
+          onClick={() => navigate('/team/new')}
+          className="fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2 bg-blue-600 text-white px-5 py-2 rounded-2xl shadow-lg"
+        >
+          + Добавить сотрудника
+        </button>
+      )}
+    </div>
+  );
+}

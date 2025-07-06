@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+
+    "allowJs": false,
+    "skipLibCheck": true,
+
+    /* чтобы не ругался на named-/default-экспорты  */
+    "esModuleInterop": true,                    // ← было false
+
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+
+    /* новый JSX-runtime */
+    "jsx": "react-jsx",
+
+    /* главное добавление: React-типы для JSX */
+    "types": ["react", "react-dom"]            // ← добавлено
+  },
+
+  "include": ["src"]
+}

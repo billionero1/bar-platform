@@ -1,0 +1,147 @@
+import express from 'express';
+import auth from '../middleware/auth.js';
+import { db } from '../index.js';
+
+const router = express.Router();
+
+// ——— Рекурсивная функция для расчёта себестоимости заготовки ———
+async function getPreparationCost(prepId, db, visited = new Set()) {
+  if (visited.has(prepId)) return 0; // защита от циклов
+  visited.add(prepId);
+
+  const { rows: ingredients } = await db.query(
+    `SELECT
+      pi.ingredient_id AS id,
+      pi.amount,
+      pi.is_preparation AS "isPreparation"
+    FROM preparation_ingredients pi
+    WHERE pi.preparation_id = $1`,
+    [prepId]
+  );
+
+  let total = 0;
+
+  for (const ing of ingredients) {
+    if (!ing.isPreparation) {
+      // Обычный ингредиент
+      const { rows: [data] } = await db.query(
+        `SELECT package_cost, package_volume FROM ingredients WHERE id = $1`,
+        [ing.id]
+      );
+      if (data && data.package_cost && data.package_volume) {
+        total += Number(ing.amount) * (Number(data.package_cost) / Number(data.package_volume));
+      }
+    } else {
+      // Вложенная заготовка — рекурсивно
+      const { rows: [prep] } = await db.query(
+        `SELECT yield_value FROM preparations WHERE id = $1`,
+        [ing.id]
+      );
+      if (prep && prep.yield_value > 0) {
+        const subCost = await getPreparationCost(ing.id, db, new Set(visited));
+        total += Number(ing.amount) * (subCost / Number(prep.yield_value));
+      }
+    }
+  }
+  return total;
+}
+
+// ——— Получение всех заготовок с составом и себестоимостью ———
+router.get('/', auth, async (req, res) => {
+  try {
+    const { rows: preps } = await db.query(
+      `SELECT id, title, yield_value, alt_volume
+       FROM preparations
+       WHERE establishment_id = $1`,
+      [req.user.establishment_id]
+    );
+
+    const result = [];
+
+    for (const prep of preps) {
+      const { rows: ingredients } = await db.query(
+        `SELECT
+          pi.ingredient_id as id,
+          pi.is_preparation,
+          pi.amount,
+          COALESCE(i.name, p.title) as name
+        FROM preparation_ingredients pi
+        LEFT JOIN ingredients i ON i.id = pi.ingredient_id AND pi.is_preparation = false
+        LEFT JOIN preparations p ON p.id = pi.ingredient_id AND pi.is_preparation = true
+        WHERE pi.preparation_id = $1`,
+        [prep.id]
+      );
+
+      const yieldValue = Number(prep.yield_value) || 1;
+      const totalCost = await getPreparationCost(prep.id, db);
+      const costPerUnit = yieldValue > 0 ? totalCost / yieldValue : null;
+
+      result.push({
+        id: prep.id,
+        name: prep.title,
+        yieldValue: yieldValue,
+        altVolume: prep.alt_volume ?? null,
+        ingredients: ingredients.map(i => ({
+          id: i.id,
+          name: i.name,
+          amount: i.amount.toString(),
+          type: i.is_preparation ? 'preparation' : 'ingredient',
+        })),
+        costPerUnit: isFinite(costPerUnit) ? costPerUnit : null,
+      });
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Ошибка получения заготовок:', err);
+    res.status(500).json({ error: 'Ошибка получения заготовок' });
+  }
+});
+
+// ——— Получение одной заготовки с составом и себестоимостью ———
+router.get('/:id', auth, async (req, res) => {
+  const id = +req.params.id;
+
+  const { rows: prepRows } = await db.query(
+    `SELECT id, title, yield_value, alt_volume
+     FROM preparations
+     WHERE id = $1 AND establishment_id = $2`,
+    [id, req.user.establishment_id]
+  );
+
+  if (!prepRows.length) return res.sendStatus(404);
+  const prep = prepRows[0];
+
+  const { rows: ingredients } = await db.query(
+    `SELECT
+      pi.ingredient_id AS id,
+      pi.amount,
+      pi.is_preparation AS "isPreparation",
+      COALESCE(i.name, p.title) AS name
+    FROM preparation_ingredients pi
+    LEFT JOIN ingredients i ON pi.ingredient_id = i.id AND pi.is_preparation = FALSE
+    LEFT JOIN preparations p ON pi.ingredient_id = p.id AND pi.is_preparation = TRUE
+    WHERE pi.preparation_id = $1`,
+    [id]
+  );
+
+  const yieldValue = Number(prep.yield_value) || 1;
+  const totalCost = await getPreparationCost(id, db);
+  const costPerUnit = yieldValue > 0 ? totalCost / yieldValue : null;
+
+  res.json({
+    id: prep.id,
+    title: prep.title,
+    yieldValue: prep.yield_value,
+    altVolume: prep.alt_volume ?? null,
+    ingredients: ingredients.map(i => ({
+      id: i.id,
+      name: i.name,
+      amount: i.amount.toString(),
+      type: i.isPreparation ? 'preparation' : 'ingredient',
+    })),
+    costPerUnit: isFinite(costPerUnit) ? costPerUnit : null,
+  });
+});
+
+export default router;
