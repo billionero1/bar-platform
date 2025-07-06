@@ -15,6 +15,9 @@ import jwt      from 'jsonwebtoken';
 import preparationsRouter from './routes/preparations.js';
 import ingredientsRouter from './routes/ingredientsRouter.js';
 import teamRouter from './routes/teamRouter.js';
+import dotenv from 'dotenv';
+dotenv.config();
+
 
 
 
@@ -30,12 +33,14 @@ const JWT_SECRET = 'supersecretkey';         // вынести в .env на пр
 const JWT_TTL    = '30d';
 
 const pool = new pg.Pool({
-  user: 'postgres',          // 🔁 твой юзер
-  host: 'localhost',
-  database: 'bar_platform',      // 🔁 твоя база
-  password: 'aE5995316aE59953163', // 🔁 твой пароль
-  port: 5432,
+  user: process.env.PGUSER,
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  password: process.env.PGPASSWORD,
+  port: process.env.PGPORT,
+  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
 });
+
 
 const db = {
   query: (text, params) => pool.query(text, params),
