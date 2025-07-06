@@ -33,13 +33,13 @@ const JWT_SECRET = 'supersecretkey';         // вынести в .env на пр
 const JWT_TTL    = '30d';
 
 const pool = new pg.Pool({
-  user: process.env.PGUSER,
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
-  password: process.env.PGPASSWORD,
-  port: process.env.PGPORT,
-  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
+
+
 
 
 const db = {
