@@ -46,65 +46,80 @@ const db = {
 
 
 /* ——————————————————————  DB INIT  ——————————————————————— */
-await db.query(`
-CREATE TABLE IF NOT EXISTS establishments (
-  id   SERIAL PRIMARY KEY,
-  name TEXT NOT NULL
-)`);
+console.log('⏳ Инициализация структуры БД...');
 
 await db.query(`
-CREATE TABLE IF NOT EXISTS users (
-  id               SERIAL PRIMARY KEY,
-  establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-  phone            TEXT UNIQUE,
-  password_hash    TEXT,
-  name             TEXT,
-  is_admin         BOOLEAN DEFAULT false,
-  must_change_pw   BOOLEAN DEFAULT false
-)`);
+  CREATE TABLE IF NOT EXISTS establishments (
+    id   SERIAL PRIMARY KEY,
+    name TEXT NOT NULL
+  )
+`);
+console.log('✅ Таблица establishments готова');
 
 await db.query(`
-CREATE TABLE IF NOT EXISTS outlets (
-  id               SERIAL PRIMARY KEY,
-  establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-  name             TEXT NOT NULL
-)`);
+  CREATE TABLE IF NOT EXISTS users (
+    id               SERIAL PRIMARY KEY,
+    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
+    phone            TEXT UNIQUE,
+    password_hash    TEXT,
+    name             TEXT,
+    is_admin         BOOLEAN DEFAULT false,
+    must_change_pw   BOOLEAN DEFAULT false
+  )
+`);
+console.log('✅ Таблица users готова');
 
 await db.query(`
-CREATE TABLE IF NOT EXISTS ingredients (
-  id               SERIAL PRIMARY KEY,
-  establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-  name             TEXT NOT NULL,
-  package_volume   REAL,
-  package_cost     REAL,
-  created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)`);
+  CREATE TABLE IF NOT EXISTS outlets (
+    id               SERIAL PRIMARY KEY,
+    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
+    name             TEXT NOT NULL
+  )
+`);
+console.log('✅ Таблица outlets готова');
 
 await db.query(`
-CREATE TABLE IF NOT EXISTS preparations (
-  id               SERIAL PRIMARY KEY,
-  establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-  title            TEXT NOT NULL,
-  yield_value      REAL,
-  created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)`);
+  CREATE TABLE IF NOT EXISTS ingredients (
+    id               SERIAL PRIMARY KEY,
+    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
+    name             TEXT NOT NULL,
+    package_volume   REAL,
+    package_cost     REAL,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+console.log('✅ Таблица ingredients готова');
 
+await db.query(`
+  CREATE TABLE IF NOT EXISTS preparations (
+    id               SERIAL PRIMARY KEY,
+    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
+    title            TEXT NOT NULL,
+    yield_value      REAL,
+    alt_volume       REAL,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+console.log('✅ Таблица preparations готова');
 
-try {
-  await db.query(`
+await db.query(`
+  ALTER TABLE preparations ADD COLUMN IF NOT EXISTS alt_volume REAL
+`);
+console.log('✅ Колонка alt_volume проверена/добавлена в preparations');
+
+await db.query(`
   CREATE TABLE IF NOT EXISTS preparation_ingredients (
     id              SERIAL PRIMARY KEY,
     preparation_id  INTEGER NOT NULL REFERENCES preparations(id),
     ingredient_id   INTEGER NOT NULL,
     is_preparation  BOOLEAN DEFAULT false,
     amount          REAL NOT NULL
-  );
+  )
+`);
+console.log('✅ Таблица preparation_ingredients готова');
 
-  `);
-  
-} catch (err) {
-  
-}
+console.log('✅ Инициализация БД завершена');
+
 
 
 /* ———————————————————  HELPERS  ————————————————————— */
