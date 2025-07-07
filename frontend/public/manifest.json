@@ -1,6 +1,6 @@
 {
   "name": "Ingredient Calculator",
-  "short_name": "IngrCalc",
+  "short_name": "Заготовки",
   "description": "Барное приложение для расчёта заготовок",
   "start_url": "/main",
   "display": "standalone",
