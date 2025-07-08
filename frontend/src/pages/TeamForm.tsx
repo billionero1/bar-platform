@@ -166,22 +166,15 @@ export default function TeamFormPage() {
           />
           Сделать менеджером (админом)
         </label>
-        <div className="flex gap-2">
-          <button
-            className="rounded bg-blue-600 text-white py-2 px-6 hover:bg-blue-700"
-            type="submit"
-            disabled={loading}
-          >
-            {isEdit ? 'Сохранить' : 'Добавить'}
-          </button>
-          <button
-            type="button"
-            className="rounded bg-gray-200 text-gray-700 py-2 px-6 hover:bg-gray-300"
-            onClick={() => navigate('/team')}
-          >
-            Отмена
-          </button>
-        </div>
+      <button
+        type="submit"
+        disabled={loading}
+        className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
+      >
+        {isEdit ? 'Сохранить' : 'Добавить'}
+      </button>
+
+
       </form>
     </div>
   );

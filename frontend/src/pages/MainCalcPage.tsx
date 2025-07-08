@@ -290,12 +290,10 @@ export default function MainCalcPage() {
           )}
         </ul>
         </div>
-    <button
-    className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white rounded py-2 text-base font-medium"
-    onClick={() => navigate('/main')}
-    >
-    Назад к списку
-    </button>
+<button className="btn-primary">
+  Назад к списку
+</button>
+
 
     
     </div>

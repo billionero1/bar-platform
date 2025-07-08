@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 
 
-const api = import.meta.env.VITE_API_URL;
+const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
 // Тип одного ингредиента
 type Ingredient = {
@@ -34,7 +34,9 @@ export default function PreparationForm() {
 
   const [search, setSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
+  const [ingredientsList, setIngredientsList] = useState<Ingredient[]>([]);
+  const [preparationsList, setPreparationsList] = useState<Ingredient[]>([]);
+
   const [totalCost, setTotalCost] = useState(0);
   const [toast, setToast] = useState('');
   const [titleError, setTitleError] = useState(false);
@@ -49,47 +51,44 @@ export default function PreparationForm() {
 
 
   useEffect(() => {
-  const fetchAllIngredients = async () => {
-    try {
-      const headers = {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      };
+    const fetchIngredientsAndPreparations = async () => {
+      try {
+        const headers = {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        };
 
-      // Получаем список всех ингредиентов и всех заготовок
-      const [resIngredients, resPreparations] = await Promise.all([
-        fetch(`${api}/ingredients`, { headers }),
-        fetch(`${api}/preparations`, { headers }),
-      ]);
+        const [resIng, resPreps] = await Promise.all([
+          fetch(`${api}/ingredients`, { headers }),
+          fetch(`${api}/preparations`, { headers }),
+        ]);
 
-      if (!resIngredients.ok || !resPreparations.ok) throw new Error();
+        if (!resIng.ok || !resPreps.ok) throw new Error();
 
-      const ingredientsRaw = await resIngredients.json();
-      const preparationsRaw = await resPreparations.json();
+        const ingData = await resIng.json();
+        const prepData = await resPreps.json();
 
-      // Формируем комбинированный список
-      const combined = [
-        ...ingredientsRaw.map((i: any) => ({
+        setIngredientsList(ingData.map((i: any) => ({
           ...i,
           type: 'ingredient' as const,
-        })),
-        ...preparationsRaw.map((p: any) => ({
+        })));
+
+        setPreparationsList(prepData.map((p: any) => ({
           id: p.id,
           name: p.name,
           packVolume: p.yieldValue,
           packCost: null,
           costPerUnit: p.costPerUnit ?? null,
           type: 'preparation' as const,
-        })),
-      ];
+        })));
+      } catch (err) {
+        setIngredientsList([]);
+        setPreparationsList([]);
+      }
+    };
 
-      setAllIngredients(combined);
-    } catch (err) {
-      setAllIngredients([]);
-    }
-  };
+    fetchIngredientsAndPreparations();
+  }, []);
 
-  fetchAllIngredients();
-}, []);
 
 
 
@@ -97,7 +96,11 @@ export default function PreparationForm() {
     let cost = 0;
 
     ingredients.forEach((ing) => {
-      const original = allIngredients.find((i) => i.id === ing.id && i.type === ing.type);
+      const original = (ing.type === 'preparation'
+        ? preparationsList
+        : ingredientsList
+      ).find((i) => i.id === ing.id);
+
       if (!original) return;
 
       const ingAmount = parseFloat(ing.amount);
@@ -111,7 +114,8 @@ export default function PreparationForm() {
     });
 
     setTotalCost(cost);
-    }, [ingredients, allIngredients]);
+    }, [ingredients, ingredientsList, preparationsList]);
+
 
 
 
@@ -129,15 +133,21 @@ export default function PreparationForm() {
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
-    const filteredIngredients = allIngredients.filter((i) =>
-        i.name.toLowerCase().includes(search.toLowerCase())
+    const filteredList = [...ingredientsList, ...preparationsList].filter((i) =>
+      i.name.toLowerCase().includes(search.toLowerCase())
     );
 
 
 
 
+
+
     const addIngredientById = (id: number, type: 'ingredient' | 'preparation') => {
-    const existing = allIngredients.find((i) => i.id === id && i.type === type);
+    const existing = (type === 'preparation'
+      ? preparationsList
+      : ingredientsList
+    ).find((i) => i.id === id);
+
 
     if (!existing) return;
     setIngredients([
@@ -177,23 +187,7 @@ export default function PreparationForm() {
           type: i.type,
         })));
 
-        // 👇 Добавь этот блок
-      setAllIngredients((prev: Ingredient[]) => {
-        const newOnes: Ingredient[] = data.ingredients.map((i: any) => ({
-          id: i.id,
-          name: i.name,
-          packVolume: null,
-          packCost: null,
-          costPerUnit: i.costPerUnit ?? null,
-          type: i.type,
-        }));
-        return [
-          ...prev,
-          ...newOnes.filter((ni) =>
-            !prev.some((pi) => pi.id === ni.id && pi.type === ni.type)
-          ),
-        ];
-      });
+
 
 
       } catch (err) {
@@ -318,34 +312,36 @@ export default function PreparationForm() {
           }}
           className="w-full rounded border px-3 py-2"
         />
-        {showDropdown && filteredIngredients.length > 0 && (
-          <ul className="absolute z-10 bg-white border w-full mt-1 max-h-40 overflow-auto rounded shadow">
-            {filteredIngredients.map((i) => (
+      {showDropdown && filteredList.length > 0 && (
+        <ul className="absolute z-10 bg-white border w-full mt-1 max-h-40 overflow-auto rounded shadow">
+          {filteredList.map((i) => (
             <li
-                key={`${i.type}-${i.id}`}
-                className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
-                onClick={() => {
-                addIngredientById(i.id, i.type); // 👈 теперь передаем и type
+              key={`${i.type}-${i.id}`}
+              className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+              onClick={() => {
+                addIngredientById(i.id, i.type);
                 setSearch('');
                 setShowDropdown(false);
-                }}
-
+              }}
             >
-                {i.name}{" "}
-                {i.type === "preparation" && (
+              {i.name}{" "}
+              {i.type === "preparation" && (
                 <span className="text-xs text-blue-500 ml-1">(заготовка)</span>
-                )}
+              )}
             </li>
-            ))}
+          ))}
+        </ul>
+      )}
 
-
-          </ul>
-        )}
       </div>
 
       <div className="space-y-2 mb-4 overflow-y-auto max-h-[50vh] pr-1">
         {ingredients.map((ing, idx) => {
-        const ingredientData = allIngredients.find((i) => i.id === ing.id && i.type === ing.type);
+        const ingredientData = (ing.type === 'preparation'
+          ? preparationsList
+          : ingredientsList
+        ).find((i) => i.id === ing.id);
+
         const amount = parseFloat(ing.amount);
         let priceDisplay = '';
 
@@ -467,10 +463,11 @@ export default function PreparationForm() {
       <div className="fixed inset-x-0 bottom-[56px] flex justify-center px-4">
         <button
           onClick={save}
-          className="fixed bottom-[calc(56px+1rem)] w-full max-w-md bg-blue-600 text-white py-3 rounded-xl text-center"
+          className="btn-primary fixed bottom-[calc(56px+1rem)]"
         >
           Сохранить
         </button>
+
       </div>
 
             {toast && (

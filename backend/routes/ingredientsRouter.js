@@ -4,28 +4,48 @@ import { db } from '../index.js';
 
 const router = express.Router();
 
-// Получение всех ингредиентов и заготовок
+// ————————————————————————————————
+// Добавляем функцию обогащения
+function enrichIngredient(row) {
+  const v = Number(row.packVolume);
+  const c = Number(row.packCost);
+  row.costPerUnit = v > 0 && c > 0 ? +(c / v).toFixed(4) : null;
+  return row;
+}
+
+// ————————————————————————————————
+// Получение всех ингредиентов
 router.get('/', auth, async (req, res) => {
-  const { rows: ingredients } = await db.query(
-    `SELECT id, name, package_volume AS "packVolume", package_cost AS "packCost",
-            created_at, 'ingredient' AS type
-     FROM ingredients
-     WHERE establishment_id = $1`,
-    [req.user.establishment_id]
-  );
+  try {
+    const { rows } = await db.query(
+      `SELECT id, name, package_volume AS "packVolume", package_cost AS "packCost"
+       FROM ingredients
+       WHERE establishment_id = $1
+       ORDER BY name`,
+      [req.user.establishment_id]
+    );
 
-  const { rows: preparations } = await db.query(
-    `SELECT id, title AS name, yield_value AS "packVolume",
-            NULL AS "packCost", CURRENT_TIMESTAMP AS created_at,
-            'preparation' AS type
-     FROM preparations
-     WHERE establishment_id = $1`,
-    [req.user.establishment_id]
-  );
+    const enriched = rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      packVolume: row.packVolume,
+      packCost: row.packCost,
+      costPerUnit: (row.packVolume && row.packCost && row.packVolume > 0)
+                   ? +(row.packCost / row.packVolume).toFixed(4)
+                   : null,
+      type: 'ingredient',
+    }));
 
-  res.json([...ingredients, ...preparations]);
+    res.json(enriched);
+
+  } catch (err) {
+    console.error('Ошибка получения ингредиентов:', err);
+    res.status(500).json({ error: 'Ошибка получения ингредиентов' });
+  }
 });
 
+
+// ————————————————————————————————
 // Добавление ингредиента
 router.post('/', auth, async (req, res) => {
   const { name, packVolume, packCost } = req.body;
@@ -42,6 +62,7 @@ router.post('/', auth, async (req, res) => {
   res.status(201).json({ id: rows[0].id });
 });
 
+// ————————————————————————————————
 // Обновление ингредиента
 router.put('/:id', auth, async (req, res) => {
   const { id } = req.params;
@@ -57,6 +78,7 @@ router.put('/:id', auth, async (req, res) => {
   res.sendStatus(200);
 });
 
+// ————————————————————————————————
 // Удаление ингредиента
 router.delete('/:id', auth, async (req, res) => {
   const { id } = req.params;

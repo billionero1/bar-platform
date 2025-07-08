@@ -46,6 +46,7 @@ async function getPreparationCost(prepId, db, visited = new Set()) {
   return total;
 }
 
+
 // ——— Получение всех заготовок с составом и себестоимостью ———
 router.get('/', auth, async (req, res) => {
   try {
@@ -79,7 +80,7 @@ router.get('/', auth, async (req, res) => {
       result.push({
         id: prep.id,
         name: prep.title,
-        yieldValue: yieldValue,
+        yieldValue,
         altVolume: prep.alt_volume ?? null,
         ingredients: ingredients.map(i => ({
           id: i.id,
@@ -97,6 +98,7 @@ router.get('/', auth, async (req, res) => {
     res.status(500).json({ error: 'Ошибка получения заготовок' });
   }
 });
+
 
 // ——— Получение одной заготовки с составом и себестоимостью ———
 router.get('/:id', auth, async (req, res) => {
@@ -143,5 +145,6 @@ router.get('/:id', auth, async (req, res) => {
     costPerUnit: isFinite(costPerUnit) ? costPerUnit : null,
   });
 });
+
 
 export default router;

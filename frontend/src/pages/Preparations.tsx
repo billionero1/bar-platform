@@ -258,12 +258,13 @@ for (let iter = 0; iter < 3; iter++) {
         </div>
 
 
-        <button
-          onClick={() => navigate('/preparations/new')}
-          className="fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2 bg-blue-600 text-white px-5 py-2 rounded-2xl shadow-lg"
-        >
-          + Новая заготовка
-        </button>
+      <button
+        onClick={() => navigate('/preparations/new')}
+        className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
+      >
+        + Новая заготовка
+      </button>
+
 
       </div>
     </>
