@@ -30,11 +30,10 @@ const JWT_SECRET = 'supersecretkey';         // вынести в .env на пр
 const JWT_TTL    = '30d';
 
 const pool = new pg.Pool({
-  user: 'postgres',          // 🔁 твой юзер
-  host: 'localhost',
-  database: 'bar_platform',      // 🔁 твоя база
-  password: 'aE5995316aE59953163', // 🔁 твой пароль
-  port: 5432,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 const db = {
