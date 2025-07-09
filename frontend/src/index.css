@@ -19,7 +19,7 @@ html, body, #root {
 }
 
 .btn-primary {
-  @apply w-full max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 text-base font-medium transition-colors duration-150 shadow;
+  @apply w-11/12 max-w-md mx-auto block bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 text-base font-medium transition-colors duration-150 shadow;
 }
 
 .btn-fixed {

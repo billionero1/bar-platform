@@ -290,9 +290,12 @@ export default function MainCalcPage() {
           )}
         </ul>
         </div>
-<button className="btn-primary">
-  Назад к списку
-</button>
+  <button
+    onClick={() => navigate(-1)}
+    className="btn-primary"
+  >
+    Назад к списку
+  </button>
 
 
     
