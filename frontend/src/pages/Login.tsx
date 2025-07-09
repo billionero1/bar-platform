@@ -15,8 +15,7 @@ import { useNavigate, Link }   from 'react-router-dom';
 import { useAuth }            from '../AuthContext';
 import Toast from '../components/Toast';
 
-const [showToast, setShowToast] = useState(false);
-const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
 
 
 /* ─── утилиты для телефона ────────────────────────────── */
@@ -41,6 +40,9 @@ export default function Login() {
   const [pass , setPass]  = useState('');
   const [show , setShow]  = useState(false);
   const [busy , setBusy]  = useState(false);
+  
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   /* ── отправка формы ─────────────────────────────────── */
     async function handleSubmit(e?: FormEvent) {
