@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import Toast from '../components/Toast';
 
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+
+const api = import.meta.env.VITE_API_URL!;
+
 
 type Employee = {
   id: number;
@@ -19,7 +22,9 @@ export default function TeamPage() {
   const [list, setList] = useState<Employee[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<string>('');
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
 
   useEffect(() => {
@@ -57,11 +62,15 @@ export default function TeamPage() {
       });
       if (res.ok) {
         setList(list.filter(e => e.id !== id));
-        setToast('Пользователь удалён');
-        setTimeout(() => setToast(''), 2000);
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+
       } else {
-        setToast('Не удалось удалить');
-        setTimeout(() => setToast(''), 2000);
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+
       }
     } finally {
       setPendingDelete(null);
@@ -75,20 +84,17 @@ export default function TeamPage() {
   function handleDelete(e: React.MouseEvent, id: number) {
     e.stopPropagation();
     setPendingDelete(id);
-    setToast('Нажмите еще раз для подтверждения удаления');
+    setToastType('error');
+    setShowToast(true);
     setTimeout(() => {
-      setToast('');
+      setShowToast(false);
       setPendingDelete(null);
     }, 2000);
   }
 
+
   return (
     <div className="h-screen flex flex-col p-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-700 text-white px-6 py-2 rounded-xl shadow-xl">
-          {toast}
-        </div>
-      )}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(56px+1rem)]">
         <input
           type="text"
@@ -159,6 +165,8 @@ export default function TeamPage() {
 
 
       )}
+      <Toast show={showToast} type={toastType} />
+
     </div>
   );
 }

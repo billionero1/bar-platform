@@ -13,6 +13,11 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import { useAuth }            from '../AuthContext';
+import Toast from '../components/Toast';
+
+const [showToast, setShowToast] = useState(false);
+const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
 
 /* ─── утилиты для телефона ────────────────────────────── */
 const normalize = (v: string) => v.replace(/\D/g, '').replace(/^8/, '7');
@@ -38,32 +43,41 @@ export default function Login() {
   const [busy , setBusy]  = useState(false);
 
   /* ── отправка формы ─────────────────────────────────── */
-  async function handleSubmit(e?: FormEvent) {
-  e?.preventDefault();
-  if (busy) return;
-  setBusy(true);
+    async function handleSubmit(e?: FormEvent) {
+    e?.preventDefault();
+    if (busy) return;
+    setBusy(true);
 
-  try {
-    const res = await fetch(
-      `${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/auth/login`,
-      {
-        method : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body   : JSON.stringify({ phone: normalize(phone), password: pass }),
-      },
-    );
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/auth/login`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: normalize(phone), password: pass }),
+        },
+      );
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Ошибка входа');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка входа');
 
-    login(data.token); // ✅ теперь только токен
-    navigate('/main', { replace: true });
-  } catch (err: any) {
-    alert(err.message ?? 'Сервер не отвечает');
-  } finally {
-    setBusy(false);
+      setToastType('success');
+      setShowToast(true);
+
+      setTimeout(() => {
+        login(data.token);
+        navigate('/main', { replace: true });
+      }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    } finally {
+      setBusy(false);
+    }
   }
-}
+
 
 const ready = normalize(phone).length === 11 && pass.length >= 4;
 
@@ -115,12 +129,13 @@ const ready = normalize(phone).length === 11 && pass.length >= 4;
         </button>
 
         <p className="mt-4 text-center text-sm">
-          Я&nbsp;менеджер?{' '}
           <Link to="/register" className="text-blue-600 underline">
             Создать&nbsp;заведение
           </Link>
         </p>
       </form>
+      <Toast show={showToast} type={toastType} />
+
     </div>
   );
 }

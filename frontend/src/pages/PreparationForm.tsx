@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
+import Toast from '../components/Toast';
 
 
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+
+const api = import.meta.env.VITE_API_URL!;
+
 
 // Тип одного ингредиента
 type Ingredient = {
@@ -38,7 +41,9 @@ export default function PreparationForm() {
   const [preparationsList, setPreparationsList] = useState<Ingredient[]>([]);
 
   const [totalCost, setTotalCost] = useState(0);
-  const [toast, setToast] = useState('');
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
   const [titleError, setTitleError] = useState(false);
 
 
@@ -162,45 +167,41 @@ export default function PreparationForm() {
 
 
 
-  useEffect(() => {
-    if (!isEditing) return;
+    useEffect(() => {
+      if (!isEditing) return;
 
-    async function loadPreparation() {
-      try {
-        const res = await fetch(`${api}/preparations/${id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
+      async function loadPreparation() {
+        try {
+          const res = await fetch(`${api}/preparations/${id}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`,
+            },
+          });
 
-        if (!res.ok) throw new Error();
-        const data = await res.json();
+          if (!res.ok) throw new Error();
+          const data = await res.json();
 
-        setTitle(data.title);
-        setYieldValue(data.yieldValue.toString());
-        setAltVolume(data.altVolume ? data.altVolume.toString() : '');
-        setShowAltVolume(!!data.altVolume);
+          setTitle(data.title);
+          setYieldValue(data.yieldValue.toString());
+          setAltVolume(data.altVolume ? data.altVolume.toString() : '');
+          setShowAltVolume(!!data.altVolume);
 
-        setIngredients(data.ingredients.map((i: any) => ({
-          id: i.id,
-          amount: i.amount,
-          type: i.type,
-        })));
+          setIngredients(data.ingredients.map((i: any) => ({
+            id: i.id,
+            amount: i.amount,
+            type: i.type,
+          })));
 
-
-
-
-      } catch (err) {
-        console.error('Ошибка загрузки заготовки', err);
-        setToast('Ошибка загрузки');
-        setTimeout(() => setToast(''), 3000);
+        } catch (err) {
+          console.error('Ошибка загрузки заготовки', err);
+          setToastType('error');
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 2000);
+        }
       }
-    }
 
-    loadPreparation();
-  }, [id, isEditing]);
-
-
+      loadPreparation();
+    }, [id, isEditing]);
 
 
 
@@ -230,50 +231,59 @@ export default function PreparationForm() {
       const cleanedTitle = title.trim();
       const cleanedYield = parseFloat(yieldValue);
 
-      if (
-          cleanedTitle.length === 0 ||
-          isNaN(cleanedYield) ||
-          !Array.isArray(ingredients) ||
-          ingredients.length === 0
-      ) {
-          setTitleError(true);
-          setToast('Проверьте поля');
-          setTimeout(() => setToast(''), 3000);
-          return;
-      }
+    if (
+      cleanedTitle.length === 0 ||
+      isNaN(cleanedYield) ||
+      !Array.isArray(ingredients) ||
+      ingredients.length === 0
+    ) {
+      setTitleError(true);
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+      return;
+    }
+
 
       try {
-          const payload = {
-            title: cleanedTitle,
-            yieldValue: cleanedYield,
-            ingredients: ingredients.map(i => ({
-              id: i.id,
-              amount: i.amount,
-              type: i.type,
-            })),
-            altVolume: showAltVolume && altVolume ? parseFloat(altVolume) : null, // 👈 добавь это
-          };
+        const payload = {
+          title: cleanedTitle,
+          yieldValue: cleanedYield,
+          ingredients: ingredients.map(i => ({
+            id: i.id,
+            amount: i.amount,
+            type: i.type,
+          })),
+          altVolume: showAltVolume && altVolume ? parseFloat(altVolume) : null,
+        };
 
+        console.log('Отправка заготовки:', payload);
 
-          console.log('Отправка заготовки:', payload);
+        const res = await fetch(`${api}/preparations${isEditing ? `/${id}` : ''}`, {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
-          const res = await fetch(`${api}/preparations${isEditing ? `/${id}` : ''}`, {
-              method: isEditing ? 'PUT' : 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${localStorage.getItem('token')}`,
-              },
-              body: JSON.stringify(payload),
-          });
+        if (!res.ok) throw new Error('Ошибка при сохранении');
 
-          if (!res.ok) throw new Error('Ошибка при сохранении');
-
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => {
           navigate('/preparations');
+        }, 1500);
       } catch (err) {
-          console.error('Ошибка при сохранении заготовки:', err);
-          setToast('Ошибка при сохранении');
-          setTimeout(() => setToast(''), 3000);
+        console.error('Ошибка при сохранении заготовки:', err);
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => {
+          setShowToast(false);
+        }, 2000);
       }
+
   };
 
 
@@ -470,29 +480,9 @@ export default function PreparationForm() {
 
       </div>
 
-            {toast && (
-            <div className="absolute top-22 inset-x-0 flex justify-center pointer-events-none">
-                <div className="max-w-xs w-full bg-white text-black rounded-2xl px-4 py-2 shadow-lg opacity-95">
-                <div className="flex items-center space-x-2">
-                    {/* красный крестик */}
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                        className="w-5 h-5 text-red-500 flex-shrink-0"
-                        viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd"
-                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 
-                            1 0 111.414 1.414L11.414 10l4.293 4.293a1 
-                            1 0 01-1.414 1.414L10 11.414l-4.293 
-                            4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 
-                            5.707a1 1 0 010-1.414z"
-                            clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium text-sm">
-                    {toast}
-                    </span>
-                </div>
-                </div>
-            </div>
-            )}
+
+
+    <Toast show={showToast} type={toastType} />
 
 
     </div>

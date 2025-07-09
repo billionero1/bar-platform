@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import Toast from '../components/Toast';
 
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+
+const api = import.meta.env.VITE_API_URL!;
+
 
 type IngredientEntry = {
   id: number;
@@ -49,7 +52,9 @@ export default function PreparationsPage() {
   const [list, setList] = useState<Preparation[]>([]);
   const [formName, setFormName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
   const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
 
   const filtered = list.filter(i =>
@@ -165,39 +170,30 @@ for (let iter = 0; iter < 3; iter++) {
 
 
 
-
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 1000);
-  }
-
   const remove = async (id: number) => {
     if (!confirm('Удалить заготовку?')) return;
-    await fetch(`${api}/preparations/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    });
-    setList(list.filter(p => p.id !== id));
-    showToast('Удалено');
+    try {
+      await fetch(`${api}/preparations/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      setList(list.filter(p => p.id !== id));
+      setToastType('success');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    } catch (err) {
+      console.error('Ошибка при удалении:', err);
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    }
   };
+
 
 
   return (
     <>
-      {toast && (
-        <div className="absolute top-14 inset-x-0 flex justify-center pointer-events-none">
-          <div className="max-w-xs w-full bg-white text-black rounded-2xl px-4 py-2 shadow-lg opacity-95">
-            <div className="flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z" clipRule="evenodd" />
-              </svg>
-              <span className="font-medium text-sm">{toast}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
+      
       <div className="h-screen flex flex-col p-4">
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(56px+1rem)]">
           <input
@@ -265,6 +261,7 @@ for (let iter = 0; iter < 3; iter++) {
         + Новая заготовка
       </button>
 
+        <Toast show={showToast} type={toastType} />
 
       </div>
     </>

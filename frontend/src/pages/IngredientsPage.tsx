@@ -4,7 +4,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth }             from '../AuthContext';
 
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const api = import.meta.env.VITE_API_URL!;
+
 
 /* ---------- тип, который реально использует UI ---------- */
 type Ingredient = {

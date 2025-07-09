@@ -31,7 +31,8 @@ function getExpandedIngredients(prepId: number, amountNeeded: number, allPrepara
   }));
 }
 
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const api = import.meta.env.VITE_API_URL!;
+
 
 export default function MainCalcPage() {
   const { logout } = useAuth();

@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import Toast from '../components/Toast';
 
-const api = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+
+const api = import.meta.env.VITE_API_URL!;
+
 
 export default function TeamFormPage() {
   const { isAdmin, userId, logout } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
-  const [toast, setToast] = useState<string>('');
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
   const [newPassword, setNewPassword] = useState('');
 
   const isEdit = !!id && id !== 'new';
@@ -64,16 +69,19 @@ export default function TeamFormPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setToast(data.error || 'Ошибка обновления');
-        setTimeout(() => setToast(''), 2500);
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+
         setLoading(false);
         return;
       }
-      setToast('Изменения сохранены!');
+      setToastType('success');
+      setShowToast(true);
       setTimeout(() => {
-        setToast('');
         navigate('/team');
-      }, 1200);
+      }, 1500);
+
       setLoading(false);
       return;
     }
@@ -93,26 +101,23 @@ export default function TeamFormPage() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setToast(data.error || 'Ошибка приглашения');
-      setTimeout(() => setToast(''), 2500);
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
       setLoading(false);
       return;
     }
-    setToast('Приглашение отправлено!');
+    setToastType('success');
+    setShowToast(true);
     setTimeout(() => {
-      setToast('');
       navigate('/team');
-    }, 1200);
+    }, 1500);
+
     setLoading(false);
   }
 
   return (
     <div className="h-screen flex flex-col p-4">
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-700 text-white px-6 py-2 rounded-xl shadow-xl">
-          {toast}
-        </div>
-      )}
       <form
         className="max-w-lg w-full mx-auto mt-6 space-y-3"
         onSubmit={handleSubmit}
@@ -176,6 +181,8 @@ export default function TeamFormPage() {
 
 
       </form>
+      <Toast show={showToast} type={toastType} />
+
     </div>
   );
 }

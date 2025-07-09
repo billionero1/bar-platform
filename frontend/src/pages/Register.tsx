@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth }   from '../AuthContext';
+import Toast from '../components/Toast';
 
 /* ─────────── хелперы для телефона ─────────── */
 function formatPhone(v: string) {
@@ -26,6 +27,9 @@ export default function Register() {
   const [confirm, setConfirm]   = useState('');
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
 
   const nav  = useNavigate();
   const { login } = useAuth();
@@ -50,32 +54,43 @@ export default function Register() {
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/auth/register-manager`,
+        `${import.meta.env.VITE_API_URL}/auth/register-manager`,
         {
-          method : 'POST',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body   : JSON.stringify({
+          body: JSON.stringify({
             establishmentName,
             name,
             phone: normalizePhone(phone),
             password,
           }),
-        },
+        }
       );
 
       const data = await res.json();
+
       if (!res.ok) {
-        alert(data.error || 'Ошибка регистрации');
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
         return;
       }
 
-      login(data.token);
-      nav('/main');
+      setToastType('success');
+      setShowToast(true);
+      setTimeout(() => {
+        login(data.token);
+        nav('/main');
+      }, 1500);
+
     } catch (err) {
       console.error('Ошибка запроса:', err);
-      alert('Не удалось зарегистрироваться');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
     }
   }
+
 
   /* ─── UI ─────────────────────────────────── */
   return (
@@ -150,6 +165,8 @@ export default function Register() {
           Зарегистрироваться
         </button>
       </div>
+      <Toast show={showToast} type={toastType} />
+
     </div>
   );
 }
