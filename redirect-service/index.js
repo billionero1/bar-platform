@@ -1,7 +1,7 @@
 import express from "express";
 
 const app = express();
-const TARGET_URL = "https://www.bar-calc.ru";
+const TARGET_URL = "www.bar-calc.ru";
 
 app.use((req, res) => {
   res.redirect(301, TARGET_URL);
