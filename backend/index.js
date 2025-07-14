@@ -54,9 +54,15 @@ CREATE TABLE IF NOT EXISTS users (
   phone            TEXT UNIQUE,
   password_hash    TEXT,
   name             TEXT,
+  surname          TEXT,
   is_admin         BOOLEAN DEFAULT false,
   must_change_pw   BOOLEAN DEFAULT false
 )`);
+await db.query(`
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS surname TEXT
+`);
+
+
 
 await db.query(`
 CREATE TABLE IF NOT EXISTS outlets (
@@ -84,6 +90,20 @@ CREATE TABLE IF NOT EXISTS preparations (
   created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )`);
 
+await db.query(`
+CREATE TABLE IF NOT EXISTS team (
+  id               SERIAL PRIMARY KEY,
+  establishment_id INTEGER NOT NULL REFERENCES establishments(id),
+  phone            TEXT UNIQUE,
+  password_hash    TEXT,
+  name             TEXT,
+  surname          TEXT,
+  is_admin         BOOLEAN DEFAULT false,
+  must_change_pw   BOOLEAN DEFAULT false,
+  invite_token     TEXT
+)
+`);
+
 
 try {
   await db.query(`
@@ -95,6 +115,7 @@ try {
     amount          REAL NOT NULL
   );
 
+  
   `);
   
 } catch (err) {
@@ -124,52 +145,69 @@ function auth(req, res, next) {
 
 /* 1. Регистрация заведения + первого админа-менеджера */
 app.post('/auth/register-manager', async (req, res) => {
-  const { establishmentName, name, phone, password } = req.body;
-  if (!establishmentName || !phone || password.length < 6)
-    return res.status(400).json({ error: 'Неверные данные' });
+  try {
+    const { establishmentName, name, surname, phone, password } = req.body;
 
-  const p = normPhone(phone);
+    if (!establishmentName || !phone || password.length < 6)
+      return res.status(400).json({ error: 'Неверные данные' });
 
-  const userExists = await db.query('SELECT 1 FROM users WHERE phone = $1', [p]);
-  if (userExists.rowCount > 0)
-    return res.status(400).json({ error: 'Телефон уже зарегистрирован' });
+    const p = normPhone(phone);
 
-  // 1. создаём заведение
-  const estRes = await db.query(
-    'INSERT INTO establishments (name) VALUES ($1) RETURNING id',
-    [establishmentName]
-  );
-  const estId = estRes.rows[0].id;
+    // Проверка уникальности
+    const userExists = await db.query('SELECT 1 FROM users WHERE phone = $1', [p]);
+    if (userExists.rowCount > 0)
+      return res.status(400).json({ error: 'Телефон уже зарегистрирован' });
 
-  // 2. создаём менеджера
-  const pwHash = await hashPw(password);
-  const userRes = await db.query(
-    `INSERT INTO users
-       (establishment_id, phone, password_hash, is_admin, name)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id`,
-    [estId, p, pwHash, true, name]
-  );
-  const uid = userRes.rows[0].id;
+    // 1. создаём заведение
+    const estRes = await db.query(
+      'INSERT INTO establishments (name) VALUES ($1) RETURNING id',
+      [establishmentName]
+    );
+    const estId = estRes.rows[0].id;
 
-  // 3. создаём дефолтный бар
-  await db.query(
-    'INSERT INTO outlets (establishment_id, name) VALUES ($1, $2)',
-    [estId, 'Main bar']
-  );
+    // 2. хешируем пароль
+    const pwHash = await hashPw(password);
 
-  // 4. формируем токен
-  const token = signJWT({
-    id: uid,
-    establishment_id: estId,
-    is_admin: true,
-    name,
-    establishment_name: establishmentName
-  });
+    // 3. создаём пользователя для входа (users)
+    const userRes = await db.query(
+      `INSERT INTO users
+         (establishment_id, phone, password_hash, is_admin, name, surname)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [estId, p, pwHash, true, name, surname || '']
+    );
+    const uid = userRes.rows[0].id;
 
-  res.json({ token, isAdmin: true });
+    // 4. вставляем этого пользователя в team
+    await db.query(
+      `INSERT INTO team
+         (establishment_id, phone, password_hash, name, surname, is_admin)
+       VALUES ($1, $2, $3, $4, $5, true)`,
+      [estId, p, pwHash, name, surname || '']
+    );
+
+    // 5. создаём дефолтный outlet
+    await db.query(
+      'INSERT INTO outlets (establishment_id, name) VALUES ($1, $2)',
+      [estId, 'Main bar']
+    );
+
+    // 6. генерируем токен
+    const token = signJWT({
+      id: uid,
+      establishment_id: estId,
+      is_admin: true,
+      name,
+      surname: surname || '',
+      establishment_name: establishmentName
+    });
+
+    res.json({ token, isAdmin: true });
+  } catch (err) {
+    console.error('Ошибка регистрации менеджера:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
 });
-
 
 
 /* 5. Логин */
@@ -191,6 +229,7 @@ app.post('/auth/login', async (req, res) => {
     establishment_id: user.establishment_id,
     is_admin: user.is_admin,
     name: user.name,
+    surname: user.surname || '',
     establishment_name: estRes.rows[0]?.name ?? ''
   });
 
@@ -198,10 +237,11 @@ app.post('/auth/login', async (req, res) => {
 });
 
 
+
 /* 6. Профиль / Моя команда */
 app.get('/auth/me', auth, async (req, res) => {
   const result = await db.query(
-    `SELECT id, phone, name, is_admin AS "isAdmin"
+    `SELECT id, phone, name, surname, is_admin AS "isAdmin"
      FROM users
      WHERE id = $1`,
     [req.user.id]
@@ -212,7 +252,7 @@ app.get('/auth/me', auth, async (req, res) => {
 app.get('/team', auth, async (req, res) => {
   if (!req.user.is_admin) return res.sendStatus(403);
   const result = await db.query(
-    `SELECT id, name, phone, must_change_pw AS "mustChangePw"
+    `SELECT id, name, surname, phone, must_change_pw AS "mustChangePw"
      FROM users
      WHERE establishment_id = $1 AND id <> $2`,
     [req.user.establishment_id, req.user.id]

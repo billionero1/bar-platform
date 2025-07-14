@@ -20,6 +20,8 @@ import TeamPage         from './pages/TeamPage';
 import PreparationForm from './pages/PreparationForm';
 import TeamFormPage from './pages/TeamForm';
 import MainCalcPage from './pages/MainCalcPage';
+import InviteComplete from './pages/InviteComplete';
+
 
 
 /* ---------- guard ---------- */
@@ -55,6 +57,8 @@ function Shell() {
           {/* Публичные */}
           <Route path="/"          element={<Login    />} />
           <Route path="/register"  element={<Register />} />
+          <Route path="/invite/:token" element={<InviteComplete />} />
+
 
           {/* Всем авторизованным */}
           <Route path="/main" element={

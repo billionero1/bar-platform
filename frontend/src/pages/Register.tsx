@@ -22,6 +22,7 @@ function normalizePhone(v: string) {
 export default function Register() {
   const [establishmentName, setEstablishmentName] = useState('');
   const [name, setName]         = useState('');
+  const [surname, setSurname]   = useState('');
   const [phone, setPhone]       = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm]   = useState('');
@@ -29,7 +30,6 @@ export default function Register() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-
 
   const nav  = useNavigate();
   const { login } = useAuth();
@@ -61,6 +61,7 @@ export default function Register() {
           body: JSON.stringify({
             establishmentName,
             name,
+            surname,
             phone: normalizePhone(phone),
             password,
           }),
@@ -91,7 +92,6 @@ export default function Register() {
     }
   }
 
-
   /* ─── UI ─────────────────────────────────── */
   return (
     <div className='flex min-h-screen items-center justify-center'>
@@ -112,6 +112,13 @@ export default function Register() {
           placeholder='Имя'
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+
+        <input
+          className='mb-2 w-full border p-2'
+          placeholder='Фамилия'
+          value={surname}
+          onChange={(e) => setSurname(e.target.value)}
         />
 
         <input
@@ -166,7 +173,6 @@ export default function Register() {
         </button>
       </div>
       <Toast show={showToast} type={toastType} />
-
     </div>
   );
 }

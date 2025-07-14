@@ -1,25 +1,25 @@
+// src/pages/TeamFormPage.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import Toast from '../components/Toast';
 
-
 const api = import.meta.env.VITE_API_URL!;
 
-
 export default function TeamFormPage() {
-  const { isAdmin, userId, logout } = useAuth();
+  const { userId } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
+
   const [showToast, setShowToast] = useState(false);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   const [newPassword, setNewPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const isEdit = !!id && id !== 'new';
   const selfId = userId;
-  const editingId = id ? +id : null;
-  const isSelf = isEdit && editingId === selfId;
+  const isSelf = isEdit && +id === selfId;
 
   const [form, setForm] = useState({
     name: '',
@@ -27,7 +27,8 @@ export default function TeamFormPage() {
     phone: '',
     isAdmin: false,
   });
-  const [loading, setLoading] = useState(false);
+
+  const [inviteLink, setInviteLink] = useState('');
 
   useEffect(() => {
     if (isEdit) {
@@ -37,10 +38,9 @@ export default function TeamFormPage() {
       })
         .then(res => res.json())
         .then(data => {
-          const [name, surname = ''] = data.name.split(' ');
           setForm({
-            name,
-            surname,
+            name: data.name,
+            surname: data.surname ?? '',
             phone: data.phone,
             isAdmin: data.isAdmin,
           });
@@ -61,32 +61,27 @@ export default function TeamFormPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: form.name + (form.surname ? ' ' + form.surname : ''),
+          name: form.name,
+          surname: form.surname,
           phone: form.phone,
           isAdmin: form.isAdmin,
           newPassword: isSelf && newPassword ? newPassword : undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setToastType('error');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 2000);
 
+      if (!res.ok) {
+        showError();
         setLoading(false);
         return;
       }
-      setToastType('success');
-      setShowToast(true);
-      setTimeout(() => {
-        navigate('/team');
-      }, 1500);
 
+      showSuccess(() => navigate('/team'));
       setLoading(false);
       return;
     }
 
-    // --- Добавление нового сотрудника ---
+    // --- Добавление нового сотрудника (инвайт) ---
     const res = await fetch(`${api}/team/invite`, {
       method: 'POST',
       headers: {
@@ -94,26 +89,69 @@ export default function TeamFormPage() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: form.name + (form.surname ? ' ' + form.surname : ''),
+        name: form.name,
+        surname: form.surname,
         phone: form.phone,
         isAdmin: form.isAdmin,
       }),
     });
     const data = await res.json();
+
     if (!res.ok) {
-        setToastType('error');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 2000);
+      showError();
       setLoading(false);
       return;
     }
+
+    // Получили inviteToken и формируем ссылку
+    const inviteUrl = `${window.location.origin}/invite/${data.inviteToken}`;
+    setInviteLink(inviteUrl);
+
+    setToastType('success');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+    setLoading(false);
+  }
+
+  function showError() {
+    setToastType('error');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+  }
+
+  function showSuccess(cb?: () => void) {
     setToastType('success');
     setShowToast(true);
     setTimeout(() => {
-      navigate('/team');
+      setShowToast(false);
+      cb?.();
     }, 1500);
+  }
 
-    setLoading(false);
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setToastType('success');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    } catch (err) {
+      console.error('Ошибка копирования:', err);
+      showError();
+    }
+  }
+
+  function handleShareLink() {
+    if (navigator.share) {
+      navigator
+        .share({
+          title: 'Приглашение в команду',
+          text: `Пройди регистрацию по ссылке: ${inviteLink}`,
+          url: inviteLink,
+        })
+        .catch(err => console.error('Ошибка share:', err));
+    } else {
+      alert('Ваш браузер не поддерживает функцию Share');
+    }
   }
 
   return (
@@ -123,22 +161,21 @@ export default function TeamFormPage() {
         onSubmit={handleSubmit}
       >
         <h1 className="text-xl font-bold mb-4">{isEdit ? 'Редактирование' : 'Добавление'} сотрудника</h1>
+
         <div className="flex gap-2">
-        <input
+          <input
             className="border rounded p-2 grow"
-            style={{ minWidth: 0 }}
             placeholder="Имя"
             value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
             required
-        />
-        <input
+          />
+          <input
             className="border rounded p-2 grow"
-            style={{ minWidth: 0 }}
             placeholder="Фамилия"
             value={form.surname}
             onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
-        />
+          />
         </div>
 
         <input
@@ -148,21 +185,23 @@ export default function TeamFormPage() {
           onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
           required
         />
+
         {isSelf && (
-            <>
+          <>
             <div className="text-xs text-gray-400 mt-1">
-                Для смены пароля воспользуйтесь полем снизу (минимум 6 символов, оставьте пустым если не собираетесь менять)
+              Для смены пароля воспользуйтесь полем снизу (минимум 6 символов, оставьте пустым если не собираетесь менять)
             </div>
             <input
-                type="password"
-                className="w-full border rounded p-2"
-                placeholder="Новый пароль"
-                value={newPassword}
-                minLength={6}
-                onChange={e => setNewPassword(e.target.value)}
+              type="password"
+              className="w-full border rounded p-2"
+              placeholder="Новый пароль"
+              value={newPassword}
+              minLength={6}
+              onChange={e => setNewPassword(e.target.value)}
             />
-            </>
+          </>
         )}
+
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -171,18 +210,38 @@ export default function TeamFormPage() {
           />
           Сделать менеджером (админом)
         </label>
-      <button
-        type="submit"
-        disabled={loading}
-        className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
-      >
-        {isEdit ? 'Сохранить' : 'Добавить'}
-      </button>
 
-
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
+        >
+          {isEdit ? 'Сохранить' : 'Добавить'}
+        </button>
       </form>
-      <Toast show={showToast} type={toastType} />
 
+      {inviteLink && (
+        <div className="max-w-lg w-full mx-auto mt-6 border rounded p-4 bg-gray-50 shadow">
+          <h2 className="text-lg font-bold mb-2">Приглашение успешно создано!</h2>
+          <p className="mb-2 break-words"><strong>Ссылка для регистрации:</strong> {inviteLink}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCopyLink}
+              className="flex-1 rounded bg-blue-600 text-white py-2"
+            >
+              Скопировать ссылку
+            </button>
+            <button
+              onClick={handleShareLink}
+              className="flex-1 rounded bg-green-600 text-white py-2"
+            >
+              Поделиться
+            </button>
+          </div>
+        </div>
+      )}
+
+      <Toast show={showToast} type={toastType} />
     </div>
   );
 }
