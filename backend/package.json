@@ -14,7 +14,8 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.2",
     "sqlite": "^4.2.1",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/pg": "^8.15.4"
