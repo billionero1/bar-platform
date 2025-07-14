@@ -272,11 +272,12 @@ app.use('/preparations', preparationsRouter);
 
 
 
-export { db };
-
 /* ———————————————————  SERVER START  —————————————————— */
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✔  API  http://localhost:${PORT}`);
 });
+
+export { db, JWT_SECRET, JWT_TTL };
+
