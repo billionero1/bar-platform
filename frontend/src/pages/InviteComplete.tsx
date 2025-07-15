@@ -78,17 +78,15 @@ export default function InviteComplete() {
     }
 
     if (data.token) {
-      // Всё ок, логинимся
-      login(data.token);
-
-      setToastType('success');
-      setShowToast(true);
-
-      setTimeout(() => navigate('/main'), 1500);
+    // Всё ок, логинимся и сразу уходим на /main
+    login(data.token);
+    navigate('/main', { replace: true });
+    return;
     } else {
-      // Случай если сервер вернул 200 но без токена
-      throw new Error('Ответ сервера не содержит токен');
+    throw new Error('Ответ сервера не содержит токен');
     }
+
+
 
   } catch (err) {
     console.error('Ошибка завершения регистрации:', err);

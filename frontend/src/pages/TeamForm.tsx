@@ -4,6 +4,26 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import Toast from '../components/Toast';
 
+/* ─── утилиты для телефона ────────────────────────────── */
+const normalize = (v: string) => v.replace(/\D/g, '').replace(/^8/, '7');
+
+const format = (raw: string) => {
+  let d = normalize(raw);
+
+  // Если только начал ввод — дополним 7
+  if (d === '') d = '7';
+
+  if (d[0] !== '7') d = '7' + d;
+
+  let out = '+7 ';
+  if (d.length > 1) out += d.slice(1, 4);
+  if (d.length > 4) out += ' ' + d.slice(4, 7);
+  if (d.length > 7) out += ' ' + d.slice(7, 9);
+  if (d.length > 9) out += ' ' + d.slice(9, 11);
+  return out.trim();
+};
+
+
 const api = import.meta.env.VITE_API_URL!;
 
 export default function TeamFormPage() {
@@ -51,7 +71,17 @@ export default function TeamFormPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
     setLoading(true);
+
+    // Проверка телефона перед отправкой
+    const cleanPhone = form.phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      setToastType('error');
+      setShowToast(true);
+      setLoading(false);
+      return;
+    }
 
     if (isEdit) {
       const res = await fetch(`${api}/team/${id}`, {
@@ -63,7 +93,7 @@ export default function TeamFormPage() {
         body: JSON.stringify({
           name: form.name,
           surname: form.surname,
-          phone: form.phone,
+          phone: cleanPhone,
           isAdmin: form.isAdmin,
           newPassword: isSelf && newPassword ? newPassword : undefined,
         }),
@@ -91,9 +121,10 @@ export default function TeamFormPage() {
       body: JSON.stringify({
         name: form.name,
         surname: form.surname,
-        phone: form.phone,
+        phone: normalize(form.phone),
         isAdmin: form.isAdmin,
       }),
+
     });
     const data = await res.json();
 
@@ -107,8 +138,8 @@ export default function TeamFormPage() {
     const inviteUrl = `${window.location.origin}/invite/${data.inviteToken}`;
     setInviteLink(inviteUrl);
     setLoading(false);
-
   }
+
 
   function showError() {
     setToastType('error');
@@ -181,9 +212,10 @@ export default function TeamFormPage() {
           className="w-full border rounded p-2"
           placeholder="Телефон"
           value={form.phone}
-          onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+          onChange={e => setForm(f => ({ ...f, phone: format(e.target.value) }))}
           required
         />
+
 
         {isSelf && (
           <>
