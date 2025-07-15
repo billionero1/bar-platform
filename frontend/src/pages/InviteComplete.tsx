@@ -29,14 +29,14 @@ export default function InviteComplete() {
 
   const passwordsMatch = password === confirm && password.length >= 6;
 
-  // ➜ если уже залогинен - redirect
+  // ➜ если уже залогинен — уходим на main
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/main', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
-  // ➜ загрузка инвайта
+  // ➜ подгрузка данных по токену
   useEffect(() => {
     if (!token) {
       setInviteValid(false);
@@ -56,7 +56,7 @@ export default function InviteComplete() {
           phone: data.phone,
         });
       } catch (err) {
-        console.error('❌ Приглашение невалидно:', err);
+        console.error('❌ Невалидный инвайт:', err);
         setInviteValid(false);
       } finally {
         setLoading(false);
@@ -96,11 +96,12 @@ export default function InviteComplete() {
         throw new Error('Некорректный ответ сервера (нет токена)');
       }
 
-      // ✅ логин
+      // ✅ логин с новым JWT
       await login(data.token);
 
-      // ✅ редирект
+      // ✅ чистый редирект без токена в адресе
       navigate('/main', { replace: true });
+
     } catch (err) {
       console.error('❌ Ошибка завершения регистрации:', err);
       setToastType('error');
@@ -110,6 +111,7 @@ export default function InviteComplete() {
     }
   }
 
+  // ➜ экраны
   if (loading) {
     return <div className="p-6 text-center">Загрузка...</div>;
   }
@@ -117,7 +119,9 @@ export default function InviteComplete() {
   if (!inviteValid) {
     return (
       <div className="p-6 text-center">
-        <h1 className="text-xl font-bold mb-4 text-red-600">Приглашение недействительно или устарело</h1>
+        <h1 className="text-xl font-bold mb-4 text-red-600">
+          Приглашение недействительно или устарело
+        </h1>
         <button
           onClick={() => navigate('/login')}
           className="btn-primary mt-4"
@@ -128,6 +132,7 @@ export default function InviteComplete() {
     );
   }
 
+  // ➜ форма
   return (
     <div className="h-screen flex flex-col p-4">
       <form
