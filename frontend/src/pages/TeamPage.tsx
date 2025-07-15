@@ -146,7 +146,7 @@ async function remove(id: number) {
                     </p>
                   )}
                 </div>
-                  {isAdmin && (
+                  {isAdmin && e.id !== userId && (
                   <button
                     onClick={ev => {
                       ev.stopPropagation();
