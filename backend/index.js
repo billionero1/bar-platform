@@ -178,21 +178,14 @@ app.post('/auth/register-manager', async (req, res) => {
     );
     const uid = userRes.rows[0].id;
 
-    // 4. вставляем этого пользователя в team
-    await db.query(
-      `INSERT INTO team
-         (establishment_id, phone, password_hash, name, surname, is_admin)
-       VALUES ($1, $2, $3, $4, $5, true)`,
-      [estId, p, pwHash, name, surname || '']
-    );
 
-    // 5. создаём дефолтный outlet
+    // 4. создаём дефолтный outlet
     await db.query(
       'INSERT INTO outlets (establishment_id, name) VALUES ($1, $2)',
       [estId, 'Main bar']
     );
 
-    // 6. генерируем токен
+    // 5. генерируем токен
     const token = signJWT({
       id: uid,
       establishment_id: estId,
@@ -247,50 +240,6 @@ app.get('/auth/me', auth, async (req, res) => {
     [req.user.id]
   );
   res.json(result.rows[0]);
-});
-
-app.get('/team', auth, async (req, res) => {
-  if (!req.user.is_admin) return res.sendStatus(403);
-
-  // 1️⃣ Менеджеры из users
-  const managersResult = await db.query(
-    `SELECT id, name, phone
-     FROM users
-     WHERE establishment_id = $1 AND is_admin = true
-     ORDER BY name`,
-    [req.user.establishment_id]
-  );
-
-  const managers = managersResult.rows.map(u => ({
-    id: u.id,
-    name: u.name,
-    phone: u.phone,
-    isAdmin: true,
-    mustChangePw: false,
-    source: 'user'
-  }));
-
-  // 2️⃣ Сотрудники из team
-  const teamResult = await db.query(
-    `SELECT id, name, phone, is_admin AS "isAdmin", must_change_pw AS "mustChangePw"
-     FROM team
-     WHERE establishment_id = $1
-     ORDER BY name`,
-    [req.user.establishment_id]
-  );
-
-  const team = teamResult.rows.map(t => ({
-    ...t,
-    source: 'team'
-  }));
-
-  // 3️⃣ Объединённый список
-  const combined = [...managers, ...team];
-
-  // 4️⃣ Вернуть менеджеров сверху
-  combined.sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin) || a.name.localeCompare(b.name));
-
-  res.json(combined);
 });
 
 
