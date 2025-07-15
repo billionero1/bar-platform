@@ -290,47 +290,55 @@ router.post('/invite/:token', async (req, res) => {
     );
   }
 
-  // 4️⃣ Получаем данные для JWT
-  const userRes = await db.query(
-    `SELECT id, establishment_id, is_admin, name, surname
-     FROM users
-     WHERE phone = $1`,
-    [invited.phone]
-  );
+// 4️⃣ Получаем данные для JWT (дополнительно забираем название заведения)
+const userRes = await db.query(
+  `SELECT id, establishment_id, is_admin, name, surname
+   FROM users
+   WHERE phone = $1`,
+  [invited.phone]
+);
+const user = userRes.rows[0];
 
-  const user = userRes.rows[0];
+// — вот тут добавляем ещё один запрос, чтобы достать название заведения —
+const estRes = await db.query(
+  `SELECT name
+   FROM establishments
+   WHERE id = $1`,
+  [user.establishment_id]
+);
+const establishment_name = estRes.rows[0]?.name || '';
 
-  const jwtToken = jwt.sign(
-    {
-      id: user.id,
-      establishment_id: user.establishment_id,
-      is_admin: user.is_admin,
-      name: user.name,
-      surname: user.surname
-    },
-    JWT_SECRET,
-    { expiresIn: JWT_TTL }
-  );
+// 5️⃣ Формируем и подписываем полный JWT
+const jwtToken = jwt.sign(
+  {
+    id: user.id,
+    establishment_id: user.establishment_id,
+    is_admin:   user.is_admin,
+    name:       user.name,
+    surname:    user.surname,
+    establishment_name   // ← теперь оно есть
+  },
+  JWT_SECRET,
+  { expiresIn: JWT_TTL }
+);
 
-  // 5️⃣ Сначала отправляем клиенту токен
+// 6️⃣ Отправляем клиенту
 res.json({
-  token: jwtToken,
+  token:   jwtToken,
   isAdmin: user.is_admin,
-  name: user.name,
+  name:    user.name,
   surname: user.surname
 });
 
-// 🔥 удаляем уже после отправки токена
+// 7️⃣ Затем, как и было, удаляем запись из team
 process.nextTick(async () => {
   try {
-    await db.query(
-      `DELETE FROM team WHERE id = $1`,
-      [invited.id]
-    );
+    await db.query(`DELETE FROM team WHERE id = $1`, [invited.id]);
   } catch (err) {
     console.error('Ошибка при удалении инвайта:', err);
   }
 });
+
 
 });
 

@@ -95,20 +95,28 @@ async function handleSubmit(e: React.FormEvent) {
       throw new Error('Некорректный ответ сервера (нет токена)');
     }
 
+    // логинимся
     await login(data.token);
-    navigate('/main', { replace: true });
+
+    // показываем успех
+    setToastType('success');
+    setShowToast(true);
+
+    // даём тоасту появиться 1.5 секунды, затем редирект
+    setTimeout(() => {
+      navigate('/main', { replace: true });
+    }, 1500);
+
   } catch (err: unknown) {
-    if (err instanceof Error) {
-      console.error('❌ Ошибка завершения регистрации:', err.message);
-    } else {
-      console.error('❌ Ошибка завершения регистрации:', err);
-    }
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('❌ Ошибка завершения регистрации:', message);
     setToastType('error');
     setShowToast(true);
   } finally {
     setSubmitting(false);
   }
 }
+
 
 
   // ➜ экраны
