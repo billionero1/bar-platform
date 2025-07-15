@@ -251,6 +251,7 @@ app.get('/auth/me', auth, async (req, res) => {
 
 app.get('/team', auth, async (req, res) => {
   if (!req.user.is_admin) return res.sendStatus(403);
+
   const result = await db.query(
     `SELECT id, name, surname, phone, is_admin AS "isAdmin", must_change_pw AS "mustChangePw"
      FROM team
@@ -258,8 +259,19 @@ app.get('/team', auth, async (req, res) => {
      ORDER BY is_admin DESC, name`,
     [req.user.establishment_id]
   );
-  res.json(result.rows);
+
+  // Добавляем админа себя в ответ
+  const me = {
+    id: req.user.id,
+    name: req.user.name,
+    phone: req.user.phone,
+    isAdmin: true,
+    mustChangePw: false,
+  };
+
+  res.json([me, ...result.rows]);
 });
+
 
 
 
