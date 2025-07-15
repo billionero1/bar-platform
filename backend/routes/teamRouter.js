@@ -16,30 +16,30 @@ const hashPw = pw => bcrypt.hash(pw, 10);
 router.get('/', auth, async (req, res) => {
   if (!req.user.is_admin) return res.sendStatus(403);
 
-  // 1️⃣ Менеджеры из users
-  const managersResult = await db.query(
-    `SELECT id, name, phone
+  // 1️⃣ Все активные пользователи из users
+  const usersResult = await db.query(
+    `SELECT id, name, phone, is_admin AS "isAdmin"
      FROM users
-     WHERE establishment_id = $1 AND is_admin = true
-     ORDER BY name`,
+     WHERE establishment_id = $1
+     ORDER BY is_admin DESC, name`,
     [req.user.establishment_id]
   );
 
-  const managers = managersResult.rows.map(u => ({
+  const users = usersResult.rows.map(u => ({
     id: u.id,
     name: u.name,
     phone: u.phone,
-    isAdmin: true,
+    isAdmin: u.isAdmin,
     mustChangePw: false,
     source: 'user'
   }));
 
-  // 2️⃣ Сотрудники из team
+  // 2️⃣ Все ещё не завершившие регистрацию из team
   const teamResult = await db.query(
     `SELECT id, name, phone, is_admin AS "isAdmin", must_change_pw AS "mustChangePw"
      FROM team
      WHERE establishment_id = $1
-     ORDER BY name`,
+     ORDER BY is_admin DESC, name`,
     [req.user.establishment_id]
   );
 
@@ -48,20 +48,19 @@ router.get('/', auth, async (req, res) => {
     source: 'team'
   }));
 
-  // 3️⃣ Объединённый список
-  const combined = [...managers, ...team];
-
-  // 4️⃣ Вернуть менеджеров сверху
-  combined.sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin) || a.name.localeCompare(b.name));
+  // 3️⃣ Склеенный результат
+  const combined = [...users, ...team];
 
   res.json(combined);
 });
 
 
-/* --- Получить одного сотрудника для редактирования --- */
+
 router.get('/:id', auth, async (req, res) => {
   const id = +req.params.id;
-  const { rows } = await db.query(
+
+  // 1. Пробуем найти в team
+  let result = await db.query(
     `SELECT id, name, surname, phone,
             is_admin AS "isAdmin",
             must_change_pw AS "mustChangePw"
@@ -69,9 +68,28 @@ router.get('/:id', auth, async (req, res) => {
      WHERE id = $1 AND establishment_id = $2`,
     [id, req.user.establishment_id]
   );
-  if (!rows.length) return res.sendStatus(404);
-  res.json(rows[0]);
+
+  if (result.rows.length) {
+    return res.json({ ...result.rows[0], source: 'team' });
+  }
+
+  // 2. Если не нашли — ищем в users
+  result = await db.query(
+    `SELECT id, name, surname, phone,
+            is_admin AS "isAdmin"
+     FROM users
+     WHERE id = $1 AND establishment_id = $2`,
+    [id, req.user.establishment_id]
+  );
+
+  if (!result.rows.length) {
+    return res.sendStatus(404);
+  }
+
+  // Вернём user без mustChangePw
+  return res.json({ ...result.rows[0], mustChangePw: false, source: 'user' });
 });
+
 
 /* --- Инвайт нового сотрудника --- */
 router.post('/invite', auth, async (req, res) => {
@@ -116,6 +134,13 @@ router.delete('/:id', auth, async (req, res) => {
   if (!req.user.is_admin) return res.sendStatus(403);
   if (id === req.user.id) return res.status(400).json({ error: 'Нельзя удалить себя' });
 
+  // Пытаемся удалить из users
+  await db.query(
+    `DELETE FROM users WHERE id = $1 AND establishment_id = $2`,
+    [id, req.user.establishment_id]
+  );
+
+  // Пытаемся удалить из team
   await db.query(
     `DELETE FROM team WHERE id = $1 AND establishment_id = $2`,
     [id, req.user.establishment_id]
@@ -124,31 +149,11 @@ router.delete('/:id', auth, async (req, res) => {
   res.json({ success: true });
 });
 
+
 /* --- Обновление сотрудника --- */
 router.put('/:id', auth, async (req, res) => {
   const id = +req.params.id;
   const { name, surname, phone, isAdmin, newPassword } = req.body;
-
-  const { rows } = await db.query(
-    `SELECT id, is_admin FROM team WHERE id = $1 AND establishment_id = $2`,
-    [id, req.user.establishment_id]
-  );
-  if (!rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
-
-  if (!req.user.is_admin) {
-    if (req.user.id !== id) return res.status(403).json({ error: 'Нет доступа' });
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: 'Введите новый пароль (мин. 6 символов)' });
-    }
-
-    const pwHash = await hashPw(newPassword);
-    await db.query(
-      `UPDATE team SET password_hash = $1, must_change_pw = false
-       WHERE id = $2`,
-      [pwHash, id]
-    );
-    return res.json({ success: true });
-  }
 
   if (!name?.trim() || !phone?.trim()) {
     return res.status(400).json({ error: 'Имя и телефон обязательны' });
@@ -156,6 +161,45 @@ router.put('/:id', auth, async (req, res) => {
 
   const normedPhone = normPhone(phone);
 
+  // 1️⃣ Проверим — есть ли в users
+  const userResult = await db.query(
+    `SELECT id FROM users WHERE id = $1 AND establishment_id = $2`,
+    [id, req.user.establishment_id]
+  );
+
+  if (userResult.rowCount > 0) {
+    // === обновляем users ===
+    if (newPassword && newPassword.length >= 6) {
+      const pwHash = await hashPw(newPassword);
+      await db.query(
+        `UPDATE users
+         SET name = $1, surname = $2, phone = $3, is_admin = $4, password_hash = $5
+         WHERE id = $6 AND establishment_id = $7`,
+        [name, surname || '', normedPhone, !!isAdmin, pwHash, id, req.user.establishment_id]
+      );
+    } else {
+      await db.query(
+        `UPDATE users
+         SET name = $1, surname = $2, phone = $3, is_admin = $4
+         WHERE id = $5 AND establishment_id = $6`,
+        [name, surname || '', normedPhone, !!isAdmin, id, req.user.establishment_id]
+      );
+    }
+
+    return res.json({ success: true });
+  }
+
+  // 2️⃣ если не нашли в users — ищем в team
+  const teamResult = await db.query(
+    `SELECT id FROM team WHERE id = $1 AND establishment_id = $2`,
+    [id, req.user.establishment_id]
+  );
+
+  if (teamResult.rowCount === 0) {
+    return res.status(404).json({ error: 'Пользователь не найден' });
+  }
+
+  // === обновляем в team ===
   if (newPassword && newPassword.length >= 6) {
     const pwHash = await hashPw(newPassword);
     await db.query(
@@ -177,6 +221,8 @@ router.put('/:id', auth, async (req, res) => {
   res.json({ success: true });
 });
 
+
+
 /* --- Принять новый пароль по токену + автологин --- */
 router.post('/invite/:token', async (req, res) => {
   const token = req.params.token;
@@ -186,8 +232,9 @@ router.post('/invite/:token', async (req, res) => {
     return res.status(400).json({ error: 'Неверные данные' });
   }
 
+  // 1️⃣ Найти запись в team по токену
   const { rows } = await db.query(
-    `SELECT id FROM team
+    `SELECT * FROM team
      WHERE invite_token = $1 AND must_change_pw = true`,
     [token]
   );
@@ -196,31 +243,65 @@ router.post('/invite/:token', async (req, res) => {
     return res.status(404).json({ error: 'Неверный или просроченный токен' });
   }
 
-  const id = rows[0].id;
+  const invited = rows[0];
+
+  // 2️⃣ Хешируем новый пароль
   const pwHash = await hashPw(password);
 
-  await db.query(
-    `UPDATE team
-     SET password_hash = $1, must_change_pw = false, invite_token = NULL
-     WHERE id = $2`,
-    [pwHash, id]
+  // 3️⃣ Добавляем в USERS или обновляем там
+  const userCheck = await db.query(
+    `SELECT id FROM users WHERE phone = $1`,
+    [invited.phone]
   );
 
-  // Получаем данные пользователя для токена
+  if (userCheck.rowCount === 0) {
+    await db.query(
+      `INSERT INTO users
+         (establishment_id, phone, password_hash, is_admin, name, surname)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        invited.establishment_id,
+        invited.phone,
+        pwHash,
+        invited.is_admin,
+        invited.name,
+        invited.surname || ''
+      ]
+    );
+  } else {
+    await db.query(
+      `UPDATE users
+         SET password_hash = $1,
+             is_admin = $2,
+             name = $3,
+             surname = $4
+       WHERE phone = $5`,
+      [
+        pwHash,
+        invited.is_admin,
+        invited.name,
+        invited.surname || '',
+        invited.phone
+      ]
+    );
+  }
+
+  // 4️⃣ Удаляем запись из team
+  await db.query(
+    `DELETE FROM team WHERE id = $1`,
+    [invited.id]
+  );
+
+  // 5️⃣ Получаем данные для JWT
   const userRes = await db.query(
     `SELECT id, establishment_id, is_admin, name, surname
-     FROM team
-     WHERE id = $1`,
-    [id]
+     FROM users
+     WHERE phone = $1`,
+    [invited.phone]
   );
 
   const user = userRes.rows[0];
 
-  if (!user) {
-    return res.status(404).json({ error: 'Пользователь не найден после обновления пароля' });
-  }
-
-  // Генерируем токен
   const jwtToken = jwt.sign(
     {
       id: user.id,
@@ -240,6 +321,7 @@ router.post('/invite/:token', async (req, res) => {
     surname: user.surname
   });
 });
+
 
 /* --- Получить данные по токену для формы регистрации --- */
 router.get('/invite/:token', async (req, res) => {

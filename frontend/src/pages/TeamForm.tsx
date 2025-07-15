@@ -76,7 +76,7 @@ export default function TeamFormPage() {
         return;
       }
 
-      showSuccess(() => navigate('/team'));
+      showSuccess();
       setLoading(false);
       return;
     }
@@ -106,11 +106,8 @@ export default function TeamFormPage() {
     // Получили inviteToken и формируем ссылку
     const inviteUrl = `${window.location.origin}/invite/${data.inviteToken}`;
     setInviteLink(inviteUrl);
-
-    setToastType('success');
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
     setLoading(false);
+
   }
 
   function showError() {
@@ -145,8 +142,9 @@ export default function TeamFormPage() {
       navigator
         .share({
           title: 'Приглашение в команду',
-          text: `Пройди регистрацию по ссылке: ${inviteLink}`,
+          text: 'Пройди регистрацию по ссылке:',
           url: inviteLink,
+
         })
         .catch(err => console.error('Ошибка share:', err));
     } else {
