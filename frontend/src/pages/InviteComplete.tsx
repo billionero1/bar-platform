@@ -8,11 +8,12 @@ const api = import.meta.env.VITE_API_URL!;
 export default function InviteComplete() {
   const { token } = useParams();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [showToast, setShowToast] = useState(false);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -27,11 +28,26 @@ export default function InviteComplete() {
 
   const passwordsMatch = password === confirm && password.length >= 6;
 
+  // ❗ При повторном заходе авторизованного юзера на /invite/:token уводим его на main
   useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/main', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  // ❗ При первом монтировании грузим данные инвайта
+  useEffect(() => {
+    if (!token) {
+      setErrorMessage('Ссылка некорректна.');
+      setLoading(false);
+      return;
+    }
+
     async function fetchInviteData() {
       try {
         const res = await fetch(`${api}/team/invite/${token}`);
         const data = await res.json();
+
         if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
 
         setForm({
@@ -39,58 +55,73 @@ export default function InviteComplete() {
           surname: data.surname,
           phone: data.phone,
         });
-      } catch (err) {
-        console.error(err);
-        setToastType('error');
-        setShowToast(true);
+      } catch (err: any) {
+        console.error('Ошибка загрузки инвайта:', err);
+        setErrorMessage('Приглашение недействительно или уже использовано.');
       } finally {
         setLoading(false);
       }
     }
 
-    if (token) fetchInviteData();
+    fetchInviteData();
   }, [token]);
 
-    async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (!passwordsMatch) {
-        setToastType('error');
-        setShowToast(true);
-        return;
+      setToastType('error');
+      setShowToast(true);
+      return;
     }
 
     setLoading(true);
     setShowToast(false);
 
     try {
-        const res = await fetch(`${api}/team/invite/${token}`, {
+      const res = await fetch(`${api}/team/invite/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
-        });
+      });
 
-        const data = await res.json();
+      const data = await res.json();
 
-        if (!res.ok || !data.token) {
-        console.error('Ошибка регистрации:', data);
+      if (!res.ok || !data.token) {
         throw new Error(data.error || 'Ошибка регистрации');
-        }
+      }
 
-        login(data.token);
-        navigate('/main', { replace: true });
+      // ✅ Автоматический логин с новым токеном
+      login(data.token);
 
-    } catch (err) {
-        console.error('Ошибка завершения регистрации:', err);
-        setToastType('error');
-        setShowToast(true);
+      // ✅ Уводим на /main и убираем /invite/:token из истории
+      navigate('/main', { replace: true });
+
+    } catch (err: any) {
+      console.error('Ошибка завершения регистрации:', err);
+      setToastType('error');
+      setShowToast(true);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-    }
+  }
 
-
+  // ❗ Отдельный экран для случая протухшей / некорректной ссылки
   if (loading) return <div className="p-6 text-center">Загрузка...</div>;
+  if (errorMessage) {
+    return (
+      <div className="h-screen flex items-center justify-center flex-col text-center p-6">
+        <h1 className="text-2xl font-bold mb-4 text-red-600">Ошибка</h1>
+        <p className="mb-4">{errorMessage}</p>
+        <button
+          className="btn-primary"
+          onClick={() => navigate('/')}
+        >
+          На главную
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col p-4">
