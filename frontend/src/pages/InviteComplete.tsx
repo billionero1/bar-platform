@@ -77,16 +77,18 @@ export default function InviteComplete() {
       throw new Error(data.error || 'Ошибка регистрации');
     }
 
-    if (!data.token) {
-      console.error('Нет токена в ответе:', data);
-      throw new Error('Некорректный ответ сервера');
+    if (data.token) {
+      // Всё ок, логинимся
+      login(data.token);
+
+      setToastType('success');
+      setShowToast(true);
+
+      setTimeout(() => navigate('/main'), 1500);
+    } else {
+      // Случай если сервер вернул 200 но без токена
+      throw new Error('Ответ сервера не содержит токен');
     }
-
-    login(data.token);
-    setToastType('success');
-    setShowToast(true);
-    setTimeout(() => navigate('/main'), 1500);
-
 
   } catch (err) {
     console.error('Ошибка завершения регистрации:', err);
@@ -96,6 +98,7 @@ export default function InviteComplete() {
     setLoading(false);
   }
 }
+
 
 
   if (loading) return <div className="p-6 text-center">Загрузка...</div>;
