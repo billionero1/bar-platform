@@ -134,20 +134,24 @@ router.delete('/:id', auth, async (req, res) => {
   if (!req.user.is_admin) return res.sendStatus(403);
   if (id === req.user.id) return res.status(400).json({ error: 'Нельзя удалить себя' });
 
-  // Пытаемся удалить из users
-  await db.query(
-    `DELETE FROM users WHERE id = $1 AND establishment_id = $2`,
-    [id, req.user.establishment_id]
-  );
+  try {
+    await db.query(
+      `DELETE FROM users WHERE id = $1 AND establishment_id = $2`,
+      [id, req.user.establishment_id]
+    );
 
-  // Пытаемся удалить из team
-  await db.query(
-    `DELETE FROM team WHERE id = $1 AND establishment_id = $2`,
-    [id, req.user.establishment_id]
-  );
+    await db.query(
+      `DELETE FROM team WHERE id = $1 AND establishment_id = $2`,
+      [id, req.user.establishment_id]
+    );
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Ошибка при удалении:', err);
+    res.status(500).json({ error: 'Ошибка при удалении пользователя' });
+  }
 });
+
 
 
 /* --- Обновление сотрудника --- */

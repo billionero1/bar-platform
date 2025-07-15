@@ -138,7 +138,7 @@ export default function TeamPage() {
                     </p>
                   )}
                 </div>
-                {isAdmin && e.source === 'team' && (
+                  {isAdmin && (
                   <button
                     onClick={ev => {
                       ev.stopPropagation();
@@ -157,6 +157,7 @@ export default function TeamPage() {
                     🗑
                   </button>
                 )}
+
               </li>
             ))
 
