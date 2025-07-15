@@ -129,28 +129,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (token: string) => {
     try {
       const decoded = jwtDecode<JwtPayload>(token);
-      const { id, is_admin, name, establishment_name, establishment_id } = decoded;
-      localStorage.setItem('establishmentId', String(establishment_id));
-      localStorage.setItem('userId', String(id));
-      setEstablishmentId(establishment_id);
-      setUserId(id);
-
-      if (!name || !establishment_name) throw new Error('Некорректный токен');
-
-      const isAdminFlag = Boolean(is_admin);
+      const { id, is_admin, name, establishment_id, establishment_name } = decoded;
+      // Сохраняем JWT
       localStorage.setItem('token', token);
-      localStorage.setItem('isAdmin', String(isAdminFlag));
-      localStorage.setItem('userName', name);
-      localStorage.setItem('establishmentName', establishment_name);
-
+      // Обязательные поля
       setAuth(true);
-      setAdmin(isAdminFlag);
+      setUserId(id);
+      setAdmin(Boolean(is_admin));
       setUserName(name);
-      setEstablishmentName(establishment_name);
+      setEstablishmentId(establishment_id);
+      // establishment_name может отсутствовать, поэтому проверяем
+      if (establishment_name) {
+        localStorage.setItem('establishmentName', establishment_name);
+        setEstablishmentName(establishment_name);
+      } else {
+        console.warn('JWT не содержит establishment_name');
+      }
     } catch (err) {
-      throw err;
+      console.error('Ошибка при логине:', err);
+      // необязательно кидать дальше, можно просто не логинить
     }
   };
+
 
   /* ── logout ──────────────────────────────────────── */
   const logout = () => {
