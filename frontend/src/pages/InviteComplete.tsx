@@ -12,6 +12,7 @@ export default function InviteComplete() {
 
   const [loading, setLoading] = useState(true);
   const [inviteValid, setInviteValid] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
@@ -28,12 +29,15 @@ export default function InviteComplete() {
 
   const passwordsMatch = password === confirm && password.length >= 6;
 
+  // ➜ если уже залогинен - redirect
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/main', { replace: true });
-      return;
     }
+  }, [isAuthenticated, navigate]);
 
+  // ➜ загрузка инвайта
+  useEffect(() => {
     if (!token) {
       setInviteValid(false);
       setLoading(false);
@@ -42,11 +46,10 @@ export default function InviteComplete() {
 
     async function fetchInviteData() {
       try {
+        setLoading(true);
         const res = await fetch(`${api}/team/invite/${token}`);
+        if (!res.ok) throw new Error('Неверный или просроченный токен');
         const data = await res.json();
-
-        if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
-
         setForm({
           name: data.name,
           surname: data.surname,
@@ -61,7 +64,7 @@ export default function InviteComplete() {
     }
 
     fetchInviteData();
-  }, [token, isAuthenticated, navigate]);
+  }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,7 +75,7 @@ export default function InviteComplete() {
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     setShowToast(false);
 
     try {
@@ -82,22 +85,28 @@ export default function InviteComplete() {
         body: JSON.stringify({ password }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.token) {
-        console.error('Ошибка регистрации:', data);
-        throw new Error(data.error || 'Ошибка регистрации');
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Ошибка регистрации');
       }
 
+      const data = await res.json();
+
+      if (!data.token) {
+        throw new Error('Некорректный ответ сервера (нет токена)');
+      }
+
+      // ✅ логин
       await login(data.token);
 
+      // ✅ редирект
       navigate('/main', { replace: true });
     } catch (err) {
-      console.error('Ошибка завершения регистрации:', err);
+      console.error('❌ Ошибка завершения регистрации:', err);
       setToastType('error');
       setShowToast(true);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
@@ -195,12 +204,12 @@ export default function InviteComplete() {
 
         <button
           type="submit"
-          disabled={loading || !passwordsMatch}
+          disabled={submitting || !passwordsMatch}
           className={`btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2 ${
             !passwordsMatch ? 'opacity-50 cursor-not-allowed' : ''
           }`}
         >
-          Завершить регистрацию
+          {submitting ? 'Завершение...' : 'Завершить регистрацию'}
         </button>
       </form>
 
