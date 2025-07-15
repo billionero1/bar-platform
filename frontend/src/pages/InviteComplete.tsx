@@ -51,52 +51,43 @@ export default function InviteComplete() {
     if (token) fetchInviteData();
   }, [token]);
 
-  async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault();
+    async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
 
-  if (!passwordsMatch) {
-    setToastType('error');
-    setShowToast(true);
-    return;
-  }
-
-  setLoading(true);
-  setShowToast(false);
-
-  try {
-    const res = await fetch(`${api}/team/invite/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error('Ошибка регистрации:', data);
-      throw new Error(data.error || 'Ошибка регистрации');
+    if (!passwordsMatch) {
+        setToastType('error');
+        setShowToast(true);
+        return;
     }
 
-    if (data.token) {
-    // Всё ок, логинимся и сразу уходим на /main
-    login(data.token);
-    navigate('/main', { replace: true });
-    return;
-    } else {
-    throw new Error('Ответ сервера не содержит токен');
+    setLoading(true);
+    setShowToast(false);
+
+    try {
+        const res = await fetch(`${api}/team/invite/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.token) {
+        console.error('Ошибка регистрации:', data);
+        throw new Error(data.error || 'Ошибка регистрации');
+        }
+
+        login(data.token);
+        navigate('/main', { replace: true });
+
+    } catch (err) {
+        console.error('Ошибка завершения регистрации:', err);
+        setToastType('error');
+        setShowToast(true);
+    } finally {
+        setLoading(false);
     }
-
-
-
-  } catch (err) {
-    console.error('Ошибка завершения регистрации:', err);
-    setToastType('error');
-    setShowToast(true);
-  } finally {
-    setLoading(false);
-  }
-}
-
+    }
 
 
   if (loading) return <div className="p-6 text-center">Загрузка...</div>;
