@@ -44,9 +44,9 @@ export default function InviteComplete() {
       return;
     }
 
-    async function fetchInviteData() {
-      try {
-        setLoading(true);
+        async function fetchInviteData() {
+        try {
+
         const res = await fetch(`${api}/team/invite/${token}`);
         if (!res.ok) throw new Error('Неверный или просроченный токен');
         const data = await res.json();
@@ -66,50 +66,50 @@ export default function InviteComplete() {
     fetchInviteData();
   }, [token]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
 
-    if (!passwordsMatch) {
-      setToastType('error');
-      setShowToast(true);
-      return;
-    }
-
-    setSubmitting(true);
-    setShowToast(false);
-
-    try {
-      const res = await fetch(`${api}/team/invite/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Ошибка регистрации');
-      }
-
-      const data = await res.json();
-
-      if (!data.token) {
-        throw new Error('Некорректный ответ сервера (нет токена)');
-      }
-
-      // ✅ логин с новым JWT
-      await login(data.token);
-
-      // ✅ чистый редирект без токена в адресе
-      navigate('/main', { replace: true });
-
-    } catch (err) {
-      console.error('❌ Ошибка завершения регистрации:', err);
-      setToastType('error');
-      setShowToast(true);
-    } finally {
-      setSubmitting(false);
-    }
+  if (!passwordsMatch) {
+    setToastType('error');
+    setShowToast(true);
+    return;
   }
+
+  setSubmitting(true);
+  setShowToast(false);
+
+  try {
+    const res = await fetch(`${api}/team/invite/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Ошибка регистрации');
+    }
+
+    if (!data.token) {
+      throw new Error('Некорректный ответ сервера (нет токена)');
+    }
+
+    await login(data.token);
+    navigate('/main', { replace: true });
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      console.error('❌ Ошибка завершения регистрации:', err.message);
+    } else {
+      console.error('❌ Ошибка завершения регистрации:', err);
+    }
+    setToastType('error');
+    setShowToast(true);
+  } finally {
+    setSubmitting(false);
+  }
+}
+
 
   // ➜ экраны
   if (loading) {
