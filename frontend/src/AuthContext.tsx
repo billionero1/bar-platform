@@ -3,8 +3,12 @@ import {
   useContext,
   useState,
   ReactNode,
+  useEffect,
 } from 'react';
 import { jwtDecode } from 'jwt-decode';
+
+
+
 
 /* -------- тип payload’а токена -------- */
 type JwtPayload = {
@@ -99,6 +103,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userName, setUserName] = useState<string>(initial.userName);
   const [establishmentName, setEstablishmentName] = useState<string>(initial.establishmentName);
   const [establishmentId, setEstablishmentId] = useState<number | null>(initial.establishmentId);
+
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      logout();
+      return;
+    }
+
+    try {
+      const payload: JwtPayload = jwtDecode(token);
+      const isExpired = payload.exp * 1000 < Date.now();
+      if (isExpired) {
+        console.warn('⏳ Токен истёк');
+        logout();
+      }
+    } catch (err) {
+      console.error('❌ Ошибка декодирования токена:', err);
+      logout();
+    }
+  }, []);
 
   /* ── login ───────────────────────────────────────── */
   const login = (token: string) => {

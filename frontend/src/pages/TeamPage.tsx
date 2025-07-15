@@ -97,13 +97,8 @@ async function remove(id: number) {
   function handleDelete(e: React.MouseEvent, id: number) {
     e.stopPropagation();
     setPendingDelete(id);
-    setToastType('error');
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-      setPendingDelete(null);
-    }, 2000);
   }
+
 
 
   return (
@@ -157,13 +152,14 @@ async function remove(id: number) {
                       }
                     }}
                     disabled={pendingDelete !== null && pendingDelete !== e.id}
-                    className={`ml-2 text-red-600 hover:text-red-800 text-xl transition-all ${
-                      pendingDelete === e.id ? 'animate-bounce' : ''
+                    className={`ml-2 text-xl transition-all ${
+                      pendingDelete === e.id ? 'text-yellow-600' : 'text-red-600 hover:text-red-800'
                     }`}
-                    title="Удалить"
+                    title={pendingDelete === e.id ? "Нажмите ещё раз для удаления" : "Удалить"}
                   >
-                    🗑
+                    {pendingDelete === e.id ? '⚠️' : '🗑'}
                   </button>
+
                 )}
 
               </li>

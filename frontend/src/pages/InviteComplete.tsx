@@ -52,41 +52,53 @@ export default function InviteComplete() {
   }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!passwordsMatch) {
-      setToastType('error');
-      setShowToast(true);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${api}/team/invite/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.token) throw new Error(data.error || 'Ошибка регистрации');
-
-      // ✅ Авторизация после успешного ответа
-      login(data.token);
-
-      setToastType('success');
-      setShowToast(true);
-
-      setTimeout(() => navigate('/main'), 1500);
-    } catch (err) {
-      console.error(err);
-      setToastType('error');
-      setShowToast(true);
-    } finally {
-      setLoading(false);
-    }
+  if (!passwordsMatch) {
+    setToastType('error');
+    setShowToast(true);
+    return;
   }
+
+  setLoading(true);
+  setShowToast(false);
+
+  try {
+    const res = await fetch(`${api}/team/invite/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error('Ошибка регистрации:', data);
+      throw new Error(data.error || 'Ошибка регистрации');
+    }
+
+    if (!data.token) {
+      console.error('Нет токена в ответе:', data);
+      throw new Error('Некорректный ответ сервера');
+    }
+
+    login(data.token);
+
+    // Покажем успех
+    setToastType('success');
+    setShowToast(true);
+
+    setTimeout(() => navigate('/main'), 1500);
+
+  } catch (err) {
+    console.error('Ошибка завершения регистрации:', err);
+    setToastType('error');
+    setShowToast(true);
+  } finally {
+    setLoading(false);
+  }
+}
+
 
   if (loading) return <div className="p-6 text-center">Загрузка...</div>;
 
