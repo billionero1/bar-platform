@@ -5,13 +5,13 @@ import { useAuth } from '../AuthContext';
 import Toast from '../components/Toast';
 
 /* ─── утилиты для телефона ────────────────────────────── */
+/* ─── утилиты для телефона ────────────────────────────── */
 const normalize = (v: string) => v.replace(/\D/g, '').replace(/^8/, '7');
 
 const format = (raw: string) => {
   let d = normalize(raw);
 
-  // Если только начал ввод — дополним 7
-  if (d === '') d = '7';
+  if (d.length === 0) return '';
 
   if (d[0] !== '7') d = '7' + d;
 
@@ -22,6 +22,13 @@ const format = (raw: string) => {
   if (d.length > 9) out += ' ' + d.slice(9, 11);
   return out.trim();
 };
+
+/* проверка валидности телефона */
+const isValidPhone = (raw: string) => {
+  const norm = normalize(raw);
+  return norm.length === 11 && norm.startsWith('7');
+};
+
 
 
 const api = import.meta.env.VITE_API_URL!;
@@ -69,19 +76,20 @@ export default function TeamFormPage() {
     }
   }, [isEdit, id]);
 
-  async function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     setLoading(true);
 
     // Проверка телефона перед отправкой
-    const cleanPhone = form.phone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
+    if (!isValidPhone(form.phone)) {
       setToastType('error');
       setShowToast(true);
       setLoading(false);
       return;
     }
+
+    const cleanPhone = normalize(form.phone);
 
     if (isEdit) {
       const res = await fetch(`${api}/team/${id}`, {
@@ -121,10 +129,9 @@ export default function TeamFormPage() {
       body: JSON.stringify({
         name: form.name,
         surname: form.surname,
-        phone: normalize(form.phone),
+        phone: cleanPhone,
         isAdmin: form.isAdmin,
       }),
-
     });
     const data = await res.json();
 
@@ -139,6 +146,7 @@ export default function TeamFormPage() {
     setInviteLink(inviteUrl);
     setLoading(false);
   }
+
 
 
   function showError() {
@@ -183,6 +191,10 @@ export default function TeamFormPage() {
     }
   }
 
+  const phoneIsValid = isValidPhone(form.phone);
+  const canSubmit = !loading && form.name.trim() && phoneIsValid;
+
+
   return (
     <div className="h-screen flex flex-col p-4">
       <form
@@ -213,8 +225,16 @@ export default function TeamFormPage() {
           placeholder="Телефон"
           value={form.phone}
           onChange={e => setForm(f => ({ ...f, phone: format(e.target.value) }))}
+
           required
         />
+
+        {!phoneIsValid && form.phone && (
+          <div className="text-red-500 text-sm">
+            Введите корректный телефон в формате +7 999 999 99 99
+          </div>
+        )}
+
 
 
         {isSelf && (
@@ -244,7 +264,7 @@ export default function TeamFormPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={!canSubmit}
           className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
         >
           {isEdit ? 'Сохранить' : 'Добавить'}
