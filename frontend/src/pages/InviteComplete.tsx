@@ -11,9 +11,7 @@ export default function InviteComplete() {
   const { login, isAuthenticated } = useAuth();
 
   const [loading, setLoading] = useState(true);
-  const [showToast, setShowToast] = useState(false);
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -25,48 +23,49 @@ export default function InviteComplete() {
   const [confirm, setConfirm] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   const passwordsMatch = password === confirm && password.length >= 6;
 
-  // ❗ При повторном заходе авторизованного юзера на /invite/:token уводим его на main
+  // Если уже залогинен — уходим
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/main', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
-  // ❗ При первом монтировании грузим данные инвайта
+  // Получение данных инвайта
   useEffect(() => {
     if (!token) {
-      setErrorMessage('Ссылка некорректна.');
+      setError('Ссылка некорректна.');
       setLoading(false);
       return;
     }
 
-    async function fetchInviteData() {
+    const fetchData = async () => {
       try {
         const res = await fetch(`${api}/team/invite/${token}`);
         const data = await res.json();
-
         if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
-
         setForm({
           name: data.name,
           surname: data.surname,
           phone: data.phone,
         });
       } catch (err: any) {
-        console.error('Ошибка загрузки инвайта:', err);
-        setErrorMessage('Приглашение недействительно или уже использовано.');
+        console.error(err);
+        setError('Приглашение недействительно или уже использовано.');
       } finally {
         setLoading(false);
       }
-    }
+    };
 
-    fetchInviteData();
+    fetchData();
   }, [token]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Обработка формы
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!passwordsMatch) {
@@ -91,31 +90,33 @@ export default function InviteComplete() {
         throw new Error(data.error || 'Ошибка регистрации');
       }
 
-      // ✅ Автоматический логин с новым токеном
-      login(data.token);
-
-      // ✅ Уводим на /main и убираем /invite/:token из истории
+      // Логин и переход
+      await login(data.token);
       navigate('/main', { replace: true });
 
     } catch (err: any) {
-      console.error('Ошибка завершения регистрации:', err);
+      console.error(err);
       setToastType('error');
       setShowToast(true);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Загрузка
+  if (loading) {
+    return <div className="p-6 text-center">Загрузка...</div>;
   }
 
-  // ❗ Отдельный экран для случая протухшей / некорректной ссылки
-  if (loading) return <div className="p-6 text-center">Загрузка...</div>;
-  if (errorMessage) {
+  // Ошибка ссылки
+  if (error) {
     return (
-      <div className="h-screen flex items-center justify-center flex-col text-center p-6">
-        <h1 className="text-2xl font-bold mb-4 text-red-600">Ошибка</h1>
-        <p className="mb-4">{errorMessage}</p>
+      <div className="h-screen flex flex-col items-center justify-center p-6">
+        <h1 className="text-2xl font-bold text-red-600 mb-4">Ошибка</h1>
+        <p className="mb-4">{error}</p>
         <button
           className="btn-primary"
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/', { replace: true })}
         >
           На главную
         </button>
@@ -134,13 +135,11 @@ export default function InviteComplete() {
         <div className="flex gap-2">
           <input
             className="border rounded p-2 grow bg-gray-100"
-            placeholder="Имя"
             value={form.name}
             disabled
           />
           <input
             className="border rounded p-2 grow bg-gray-100"
-            placeholder="Фамилия"
             value={form.surname}
             disabled
           />
@@ -148,7 +147,6 @@ export default function InviteComplete() {
 
         <input
           className="w-full border rounded p-2 bg-gray-100"
-          placeholder="Телефон"
           value={form.phone}
           disabled
         />
@@ -191,7 +189,7 @@ export default function InviteComplete() {
           </button>
         </div>
 
-        {!passwordsMatch && password.length > 0 && confirm.length > 0 && (
+        {!passwordsMatch && password && confirm && (
           <div className="text-red-500 text-sm">
             Пароли не совпадают или слишком короткие
           </div>
