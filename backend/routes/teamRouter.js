@@ -290,13 +290,7 @@ router.post('/invite/:token', async (req, res) => {
     );
   }
 
-  // 4️⃣ Удаляем запись из team
-  await db.query(
-    `DELETE FROM team WHERE id = $1`,
-    [invited.id]
-  );
-
-  // 5️⃣ Получаем данные для JWT
+  // 4️⃣ Получаем данные для JWT
   const userRes = await db.query(
     `SELECT id, establishment_id, is_admin, name, surname
      FROM users
@@ -318,13 +312,21 @@ router.post('/invite/:token', async (req, res) => {
     { expiresIn: JWT_TTL }
   );
 
+  // 5️⃣ Сначала отправляем клиенту токен
   res.json({
     token: jwtToken,
     isAdmin: user.is_admin,
     name: user.name,
     surname: user.surname
   });
+
+  // 6️⃣ Потом удаляем инвайт
+  await db.query(
+    `DELETE FROM team WHERE id = $1`,
+    [invited.id]
+  );
 });
+
 
 
 /* --- Получить данные по токену для формы регистрации --- */
