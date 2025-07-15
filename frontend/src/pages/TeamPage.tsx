@@ -13,7 +13,9 @@ type Employee = {
   phone: string;
   isAdmin: boolean;
   mustChangePw?: boolean;
+  source: 'user' | 'team';
 };
+
 
 export default function TeamPage() {
   const { isAdmin, logout, userId } = useAuth();
@@ -78,7 +80,10 @@ export default function TeamPage() {
   }
 
   // Менеджеры всегда вверху
-  const sorted = [...filtered].sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin));
+  const sorted = [...filtered].sort((a, b) => {
+    if (b.isAdmin !== a.isAdmin) return Number(b.isAdmin) - Number(a.isAdmin);
+    return a.name.localeCompare(b.name);
+  });
 
   // Кастомное "confirm" через тост (как у ингредиентов)
   function handleDelete(e: React.MouseEvent, id: number) {
@@ -111,29 +116,32 @@ export default function TeamPage() {
             {sorted.length === 0 ? (
               <li className="text-center text-gray-500 py-4">Ничего не найдено</li>
             ) : (
-              sorted.map(e => (
-                <li
-                  key={e.id}
-                  className="flex items-center justify-between rounded border p-3 cursor-pointer hover:bg-gray-50"
-                  onClick={() => navigate(`/team/${e.id}`)}
-                >
-                  <div>
-                    <p className="font-medium break-words whitespace-normal">
-                      {e.name}
-                      {e.isAdmin && (
-                        <span className="ml-2 text-xs text-blue-600">(менеджер)</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-500">{e.phone}</p>
-                    {e.mustChangePw && (
-                      <p className="text-xs text-yellow-600 mt-1">
-                        ожидает регистрацию
-                      </p>
+            sorted.map(e => (
+              <li
+                key={e.id}
+                className={`flex items-center justify-between rounded border p-3 ${
+                  e.isAdmin ? 'bg-blue-50' : 'hover:bg-gray-50 cursor-pointer'
+                }`}
+                onClick={() => e.source === 'team' && navigate(`/team/${e.id}`)}
+              >
+                <div>
+                  <p className="font-medium break-words whitespace-normal">
+                    {e.name}
+                    {e.isAdmin && (
+                      <span className="ml-2 text-xs text-blue-600">(менеджер)</span>
                     )}
-                  </div>
-                  {isAdmin && e.id !== userId && (
+                  </p>
+                  <p className="text-xs text-gray-500">{e.phone}</p>
+                  {e.mustChangePw && (
+                    <p className="text-xs text-yellow-600 mt-1">
+                      ожидает регистрацию
+                    </p>
+                  )}
+                </div>
+                {isAdmin && e.source === 'team' && (
                   <button
                     onClick={ev => {
+                      ev.stopPropagation();
                       if (pendingDelete === e.id) {
                         remove(e.id);
                       } else {
@@ -149,9 +157,9 @@ export default function TeamPage() {
                     🗑
                   </button>
                 )}
+              </li>
+            ))
 
-                </li>
-              ))
             )}
           </ul>
         )}

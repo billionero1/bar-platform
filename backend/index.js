@@ -252,25 +252,47 @@ app.get('/auth/me', auth, async (req, res) => {
 app.get('/team', auth, async (req, res) => {
   if (!req.user.is_admin) return res.sendStatus(403);
 
-  const result = await db.query(
-    `SELECT id, name, surname, phone, is_admin AS "isAdmin", must_change_pw AS "mustChangePw"
-     FROM team
-     WHERE establishment_id = $1
-     ORDER BY is_admin DESC, name`,
+  // 1️⃣ Менеджеры из users
+  const managersResult = await db.query(
+    `SELECT id, name, phone
+     FROM users
+     WHERE establishment_id = $1 AND is_admin = true
+     ORDER BY name`,
     [req.user.establishment_id]
   );
 
-  // Добавляем админа себя в ответ
-  const me = {
-    id: req.user.id,
-    name: req.user.name,
-    phone: req.user.phone,
+  const managers = managersResult.rows.map(u => ({
+    id: u.id,
+    name: u.name,
+    phone: u.phone,
     isAdmin: true,
     mustChangePw: false,
-  };
+    source: 'user'
+  }));
 
-  res.json([me, ...result.rows]);
+  // 2️⃣ Сотрудники из team
+  const teamResult = await db.query(
+    `SELECT id, name, phone, is_admin AS "isAdmin", must_change_pw AS "mustChangePw"
+     FROM team
+     WHERE establishment_id = $1
+     ORDER BY name`,
+    [req.user.establishment_id]
+  );
+
+  const team = teamResult.rows.map(t => ({
+    ...t,
+    source: 'team'
+  }));
+
+  // 3️⃣ Объединённый список
+  const combined = [...managers, ...team];
+
+  // 4️⃣ Вернуть менеджеров сверху
+  combined.sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin) || a.name.localeCompare(b.name));
+
+  res.json(combined);
 });
+
 
 
 
