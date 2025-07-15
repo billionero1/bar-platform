@@ -161,22 +161,23 @@ export default function TeamFormPage() {
         onSubmit={handleSubmit}
       >
         <h1 className="text-xl font-bold mb-4">{isEdit ? 'Редактирование' : 'Добавление'} сотрудника</h1>
-
+        
         <div className="flex gap-2">
           <input
-            className="border rounded p-2 grow"
+            className="border rounded p-2 w-1/2"
             placeholder="Имя"
             value={form.name}
             onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
             required
           />
           <input
-            className="border rounded p-2 grow"
+            className="border rounded p-2 w-1/2"
             placeholder="Фамилия"
             value={form.surname}
             onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
           />
         </div>
+
 
         <input
           className="w-full border rounded p-2"
