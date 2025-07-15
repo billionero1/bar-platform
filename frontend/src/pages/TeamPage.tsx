@@ -55,29 +55,37 @@ export default function TeamPage() {
   );
 
   // Удаление
-  async function remove(id: number) {
-    setPendingDelete(id);
-    try {
-      const res = await fetch(`${api}/team/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      if (res.ok) {
-        setList(list.filter(e => e.id !== id));
-        setToastType('success');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 2000);
+async function remove(id: number) {
+  setPendingDelete(id);
+  try {
+    const res = await fetch(`${api}/team/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    });
 
-      } else {
-        setToastType('error');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 2000);
+    const data = await res.json();
 
-      }
-    } finally {
-      setPendingDelete(null);
+    if (res.ok) {
+      setList(list.filter(e => e.id !== id));
+      setToastType('success');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    } else {
+      console.error('Ошибка удаления:', data);
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
     }
+  } catch (err) {
+    console.error('Ошибка сети:', err);
+    setToastType('error');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+  } finally {
+    setPendingDelete(null);
   }
+}
+
 
   // Менеджеры всегда вверху
   const sorted = [...filtered].sort((a, b) => {
