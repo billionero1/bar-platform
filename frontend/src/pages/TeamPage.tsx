@@ -16,7 +16,7 @@ type Employee = {
 };
 
 export default function TeamPage() {
-  const { isAdmin, logout } = useAuth();
+  const { isAdmin, logout, userId } = useAuth();
   const navigate = useNavigate();
 
   const [list, setList] = useState<Employee[]>([]);
@@ -131,22 +131,25 @@ export default function TeamPage() {
                       </p>
                     )}
                   </div>
-                  {isAdmin && (
-                    <button
-                      onClick={ev => {
-                        if (pendingDelete === e.id) {
-                          remove(e.id);
-                        } else {
-                          handleDelete(ev, e.id);
-                        }
-                      }}
-                      disabled={pendingDelete !== null && pendingDelete !== e.id}
-                      className={`ml-2 text-red-600 hover:text-red-800 text-xl transition-all ${
-                        pendingDelete === e.id ? 'animate-bounce' : ''
-                      }`}
-                      title="Удалить"
-                    >🗑</button>
-                  )}
+                  {isAdmin && e.id !== userId && (
+                  <button
+                    onClick={ev => {
+                      if (pendingDelete === e.id) {
+                        remove(e.id);
+                      } else {
+                        handleDelete(ev, e.id);
+                      }
+                    }}
+                    disabled={pendingDelete !== null && pendingDelete !== e.id}
+                    className={`ml-2 text-red-600 hover:text-red-800 text-xl transition-all ${
+                      pendingDelete === e.id ? 'animate-bounce' : ''
+                    }`}
+                    title="Удалить"
+                  >
+                    🗑
+                  </button>
+                )}
+
                 </li>
               ))
             )}
