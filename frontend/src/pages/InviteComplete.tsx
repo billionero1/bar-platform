@@ -83,12 +83,10 @@ export default function InviteComplete() {
     }
 
     login(data.token);
-
-    // Покажем успех
     setToastType('success');
     setShowToast(true);
-
     setTimeout(() => navigate('/main'), 1500);
+
 
   } catch (err) {
     console.error('Ошибка завершения регистрации:', err);
