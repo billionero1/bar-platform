@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import Toast from '../components/Toast'; 
 
 // Типы такие же, как были
 type Ingredient = {
@@ -34,11 +35,17 @@ const api = import.meta.env.VITE_API_URL!;
 export default function MainPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // приводим state к нужному типу
+  const state = location.state as { toastType?: 'success' | 'error' } | undefined;
 
   // Данные
   const [allPreparations, setAllPreparations] = useState<Preparation[]>([]);
   const [allIngredients, setAllIngredients] = useState<Ingredient[]>([]);
   const [search, setSearch] = useState('');
+
+  const [showToast, setShowToast] = useState(false);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // Загрузка всех заготовок и ингредиентов
   useEffect(() => {
@@ -60,6 +67,17 @@ export default function MainPage() {
     };
     fetchAll();
   }, [logout]);
+
+
+// При заходе подтягиваем toastType из навигационного state и показываем тост
+    useEffect(() => {
+    const t = state?.toastType;
+    if (t) {
+    setToastType(t);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 1500);
+    }
+    }, [state]);
 
   // Фильтр по поиску
   const filtered = allPreparations.filter(i =>
@@ -91,6 +109,7 @@ export default function MainPage() {
           ))
         )}
       </ul>
+    <Toast show={showToast} type={toastType} />
     </div>
   );
 }

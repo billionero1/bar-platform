@@ -98,14 +98,15 @@ async function handleSubmit(e: React.FormEvent) {
     // логинимся
     await login(data.token);
 
-    // показываем успех
-    setToastType('success');
-    setShowToast(true);
+    // сразу переходим на main и передаём состояние для тоста
+    navigate('/main', {
+      replace: true,
+      state: {
+        toastType: 'success',
+        toastMessage: 'Регистрация завершена успешно',
+      },
+    });
 
-    // даём тоасту появиться 1.5 секунды, затем редирект
-    setTimeout(() => {
-      navigate('/main', { replace: true });
-    }, 1500);
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
