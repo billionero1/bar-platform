@@ -313,18 +313,25 @@ router.post('/invite/:token', async (req, res) => {
   );
 
   // 5️⃣ Сначала отправляем клиенту токен
-  res.json({
-    token: jwtToken,
-    isAdmin: user.is_admin,
-    name: user.name,
-    surname: user.surname
-  });
+res.json({
+  token: jwtToken,
+  isAdmin: user.is_admin,
+  name: user.name,
+  surname: user.surname
+});
 
-  // 6️⃣ Потом удаляем инвайт
-  await db.query(
-    `DELETE FROM team WHERE id = $1`,
-    [invited.id]
-  );
+// 🔥 удаляем уже после отправки токена
+process.nextTick(async () => {
+  try {
+    await db.query(
+      `DELETE FROM team WHERE id = $1`,
+      [invited.id]
+    );
+  } catch (err) {
+    console.error('Ошибка при удалении инвайта:', err);
+  }
+});
+
 });
 
 
