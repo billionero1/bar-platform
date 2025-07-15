@@ -16,11 +16,17 @@ import preparationsRouter from './routes/preparations.js';
 import ingredientsRouter from './routes/ingredientsRouter.js';
 import teamRouter from './routes/teamRouter.js';
 
-
-
-
-
 const app = express();
+
+// ✅ Эти две строки — решение
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] !== 'https') {
+    return res.redirect('https://' + req.headers.host + req.url);
+  }
+  next();
+});
+
 app.use(cors());
 app.use(express.json());
 app.use('/team', teamRouter);
@@ -39,6 +45,7 @@ const pool = new pg.Pool({
 const db = {
   query: (text, params) => pool.query(text, params),
 };
+
 
 /* ——————————————————————  DB INIT  ——————————————————————— */
 await db.query(`
