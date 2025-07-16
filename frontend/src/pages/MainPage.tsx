@@ -99,7 +99,7 @@ export default function MainPage() {
       </div>
 
       {/* Прокручиваемый список (с отступом под футер) */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-36">
         <ul className="space-y-1">
           {filtered.length === 0 ? (
             <li className="text-gray-400 text-sm">Ничего не найдено</li>
