@@ -19,7 +19,9 @@ import TeamPage         from './pages/TeamPage';
 import TeamFormPage     from './pages/TeamForm';
 import MainCalcPage     from './pages/MainCalcPage';
 import InviteComplete   from './pages/InviteComplete';
-import TtkPage          from './pages/TtkPage';  // <- новая заглушка
+import TtkPage          from './pages/TtkPage';      // ← заглушка для ТТК
+import LearnPage        from './pages/LearnPage';    // ← заглушка для обучалки
+import SettingsPage     from './pages/SettingsPage'; // ← заглушка для настроек
 
 /* ---------- guard ---------- */
 function Protected({
@@ -93,6 +95,16 @@ function Shell() {
           {/* Заглушка TTK */}
           <Route path="/ttk" element={
             <Protected><TtkPage/></Protected>
+          }/>
+
+          {/* Заглушка «Обучалки» */}
+          <Route path="/learn" element={
+            <Protected><LearnPage/></Protected>
+          }/>
+
+          {/* Заглушка «Настройки» */}
+          <Route path="/settings" element={
+            <Protected><SettingsPage/></Protected>
           }/>
 
           {/* Fallback */}
