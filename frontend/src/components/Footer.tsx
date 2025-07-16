@@ -44,17 +44,16 @@ export default function Footer() {
     case pathname === "/preparations/new" ||
          pathname.startsWith("/preparations/"):
       actionButton = (
-        <button
-          onClick={() => {
-            // Явно приводим к HTMLFormElement чтобы requestSubmit было доступно
-            (document.getElementById("prep-form") as HTMLFormElement)
-              ?.requestSubmit();
-          }}
-          className="text-2xl"
-          aria-label="Сохранить заготовку"
-        >
-          ✔
-        </button>
+      <button
+        onClick={() => {
+          const form = document.getElementById("prep-form") as HTMLFormElement | null;
+          form?.requestSubmit();
+        }}
+        className="text-2xl"
+        aria-label="Сохранить заготовку"
+      >
+        ✔
+      </button>
       );
       break;
 
@@ -62,16 +61,16 @@ export default function Footer() {
     case pathname === "/team/new" ||
          pathname.startsWith("/team/"):
       actionButton = (
-        <button
-          onClick={() => {
-            (document.getElementById("team-form") as HTMLFormElement)
-              ?.requestSubmit();
-          }}
-          className="text-2xl"
-          aria-label="Сохранить пользователя"
-        >
-          ✔
-        </button>
+      <button
+        onClick={() => {
+          const form = document.getElementById("team-form") as HTMLFormElement | null;
+          form?.requestSubmit();
+        }}
+        className="text-2xl"
+        aria-label="Сохранить пользователя"
+      >
+        ✔
+      </button>
       );
       break;
 

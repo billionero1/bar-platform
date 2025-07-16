@@ -287,12 +287,16 @@ export default function PreparationForm() {
   };
 
 
-
-
-
-
   return (
-    <div className="h-screen flex flex-col p-4 pt-8 pb-56 overflow-hidden">
+  <form
+    id="prep-form"
+    onSubmit={(e) => {
+      e.preventDefault();
+      save();
+    }}
+    className="h-screen flex flex-col p-4 pt-8 pb-56 overflow-hidden"
+  >
+
       <h1 className="text-2xl font-bold mb-4">Редактор заготовок</h1>
 
         <input
@@ -477,6 +481,7 @@ export default function PreparationForm() {
     <Toast show={showToast} type={toastType} />
 
 
-    </div>
+    </form>
   );
+
 }

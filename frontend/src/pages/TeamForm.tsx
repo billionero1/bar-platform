@@ -198,9 +198,11 @@ export default function TeamFormPage() {
   return (
     <div className="h-screen flex flex-col p-4">
       <form
+        id="team-form"
         className="max-w-lg w-full mx-auto mt-6 space-y-3"
         onSubmit={handleSubmit}
       >
+
         <h1 className="text-xl font-bold mb-4">{isEdit ? 'Редактирование' : 'Добавление'} сотрудника</h1>
         
         <div className="flex gap-2">
