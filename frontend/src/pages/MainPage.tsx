@@ -94,7 +94,17 @@ export default function MainPage() {
         onChange={e => setSearch(e.target.value)}
         className="w-full mb-2 rounded border px-3 py-2"
       />
-      <ul className="space-y-1">
+
+
+     {/*
+       Оборачиваем наш список в flex‑1, 
+       чтобы он занял всё оставшееся место,
+       и даём overflow-y-auto + padding-bottom 
+       под высоту футера (например pb-20 — это 5rem = 80px).
+     */}
+
+      <div className="flex-1 overflow-y-auto pb-20">
+        <ul className="space-y-1">
         {filtered.length === 0 ? (
           <li className="text-gray-400 text-sm">Ничего не найдено</li>
         ) : (
@@ -109,7 +119,8 @@ export default function MainPage() {
           ))
         )}
       </ul>
-    <Toast show={showToast} type={toastType} />
+     </div>
+      <Toast show={showToast} type={toastType} />
     </div>
   );
 }
