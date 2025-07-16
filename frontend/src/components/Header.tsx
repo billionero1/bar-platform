@@ -1,7 +1,7 @@
 // src/components/Header.tsx
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { LogoutIcon, XIcon } from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 
 export default function Header() {
   const { establishmentName, logout } = useAuth();
@@ -9,10 +9,8 @@ export default function Header() {
   const { pathname } = useLocation();
 
   // пути «формовых» страниц
-  const isFormPage = [
-    '/preparations/new',
-    '/team/new',
-  ].some(p => pathname.startsWith(p)) ||
+  const isFormPage =
+    ['/preparations/new', '/team/new'].some(p => pathname.startsWith(p)) ||
     /^\/preparations\/\d+$/.test(pathname) ||
     /^\/team\/\d+$/.test(pathname);
 
@@ -25,12 +23,13 @@ export default function Header() {
             className="p-2"
             aria-label="Назад"
           >
-            <XIcon size={24} />
+            <X size={24} />
           </button>
         ) : (
           <button
             onClick={() => navigate('/main')}
             className="font-semibold text-lg"
+            aria-label="Главная"
           >
             {establishmentName}
           </button>
@@ -45,7 +44,7 @@ export default function Header() {
         className="p-2"
         aria-label="Выйти"
       >
-        <LogoutIcon size={24} />
+        <LogOut size={24} />
       </button>
     </header>
   );
