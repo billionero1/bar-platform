@@ -16,21 +16,17 @@ export default function Footer() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // ─── state и эффекты ─────────────────────────────
-  const [subOpen, setSubOpen] = useState(false);
-  useEffect(() => { setSubOpen(false); }, [pathname]);
-
-  // ─── ранние return ───────────────────────────────
+  // если не залогинен — не показываем футер
   if (!isAuthenticated) return null;
 
-  // 1) На формах футер не показываем
+  // 1) скрываем футер на формах добавления/редактирования
   const isFormPage =
     ['/preparations/new', '/team/new'].some(p => pathname.startsWith(p)) ||
     /^\/preparations\/\d+$/.test(pathname) ||
     /^\/team\/\d+$/.test(pathname);
   if (isFormPage) return null;
 
-  // 2) На списках у админа — одна кнопка «Добавить»
+  // 2) на страницах списков у админа — одна большая кнопка «Добавить»
   const isAddListPage = isAdmin && ['/preparations', '/team'].includes(pathname);
   if (isAddListPage) {
     const to = pathname === '/preparations' ? '/preparations/new' : '/team/new';
@@ -46,7 +42,13 @@ export default function Footer() {
     );
   }
 
-  // ─── пункты меню ─────────────────────────────────
+  // 3) обычный футер
+  const [subOpen, setSubOpen] = useState(false);
+  // при смене пути закрываем подменю
+  useEffect(() => {
+    setSubOpen(false);
+  }, [pathname]);
+
   type NavItem = {
     icon: React.FC<{ size: number }>;
     to?: string;
@@ -58,6 +60,7 @@ export default function Footer() {
   };
 
   const navItems: NavItem[] = [
+    // 1. Дом
     {
       icon: HomeIcon,
       to: '/main',
@@ -67,11 +70,13 @@ export default function Footer() {
         else navigate('/main');
       },
     },
+    // 2. TTK
     {
       icon: BookOpenIcon,
       to: '/ttk',
       active: pathname === '/ttk',
     },
+    // 3. «+»: админ → «цветок»; персонал → песочница
     isAdmin
       ? {
           icon: PlusCircleIcon,
@@ -82,8 +87,8 @@ export default function Footer() {
           ),
           sub: [
             { label: 'Ингредиенты', to: '/ingredients' },
-            { label: 'Заготовки',   to: '/preparations' },
-            { label: 'Команда',     to: '/team' },
+            { label: 'Заготовки', to: '/preparations' },
+            { label: 'Команда', to: '/team' },
           ],
           onClick: () => setSubOpen(o => !o),
         }
@@ -93,11 +98,13 @@ export default function Footer() {
           to: '/sandbox',
           active: pathname === '/sandbox',
         },
+    // 4. Learn
     {
       icon: GraduationCapIcon,
       to: '/learn',
       active: pathname === '/learn',
     },
+    // 5. Профиль
     {
       icon: UserCogIcon,
       to: '/profile',
@@ -105,11 +112,10 @@ export default function Footer() {
     },
   ];
 
-  // ─── отрисовка футера ─────────────────────────────
   return (
     <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-4 shadow-inner">
       {navItems.map((item, i) => (
-        <div key={i} className="relative flex-1 flex justify-center">
+        <div key={i} className="relative">
           <button
             onClick={
               item.onClick ??
@@ -117,27 +123,27 @@ export default function Footer() {
                 if (item.to) navigate(item.to);
               })
             }
-            className={`flex items-center justify-center p-2 rounded-full transition ${
+            className={
               item.special
-                ? `bg-blue-600 text-white ${subOpen ? 'ring-2 ring-blue-300' : ''}`
-                : item.active
-                ? 'text-blue-600'
-                : 'text-gray-500'
-            }`}
+                ? 'flex items-center justify-center bg-blue-600 text-white p-2 rounded-full'
+                : `flex items-center justify-center ${
+                    item.active ? 'text-blue-600' : 'text-gray-500'
+                  }`
+            }
           >
-            <item.icon size={24} />
+            <item.icon size={item.special ? 28 : 24} />
           </button>
 
           {/* «цветок» — пузырьки для админа */}
           {item.hasSub && item.sub && subOpen && (
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 w-0 h-0">
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4">
               {/* центральный пузырёк */}
               <button
                 onClick={() => {
                   setSubOpen(false);
                   navigate(item.sub![1].to);
                 }}
-                className="absolute left-1/2 transform -translate-x-1/2 -bottom-12 bg-white p-2 rounded-full shadow"
+                className="absolute bottom-12 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-full shadow"
               >
                 {item.sub![1].label}
               </button>
@@ -147,7 +153,7 @@ export default function Footer() {
                   setSubOpen(false);
                   navigate(item.sub![0].to);
                 }}
-                className="absolute -left-12 -bottom-8 bg-white p-2 rounded-full shadow"
+                className="absolute bottom-8 left-1/2 -ml-12 bg-white p-2 rounded-full shadow"
               >
                 {item.sub![0].label}
               </button>
@@ -157,7 +163,7 @@ export default function Footer() {
                   setSubOpen(false);
                   navigate(item.sub![2].to);
                 }}
-                className="absolute left-12 -bottom-8 bg-white p-2 rounded-full shadow"
+                className="absolute bottom-8 left-1/2 ml-12 bg-white p-2 rounded-full shadow"
               >
                 {item.sub![2].label}
               </button>
