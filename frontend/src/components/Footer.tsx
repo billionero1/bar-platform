@@ -8,7 +8,7 @@ export default function Footer() {
   if (!isAuthenticated) return null;
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 bg-white text-black py-5 px-5 flex justify-between items-center">
+    <footer className="fixed bottom-0 left-0 right-0 bg-white text-black py-8 px-5 flex justify-between items-center">
       {/* название заведения слева — кликабельно, ведёт на «Команда» */}
         <span className="cursor-pointer" onClick={() => navigate("/team")}>
         {establishmentName}
