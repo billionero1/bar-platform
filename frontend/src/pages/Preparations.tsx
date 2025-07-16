@@ -254,12 +254,6 @@ for (let iter = 0; iter < 3; iter++) {
         </div>
 
 
-      <button
-        onClick={() => navigate('/preparations/new')}
-        className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
-      >
-        + Новая заготовка
-      </button>
 
         <Toast show={showToast} type={toastType} />
 

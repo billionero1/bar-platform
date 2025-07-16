@@ -170,17 +170,6 @@ async function remove(id: number) {
         )}
       </div>
 
-      {/* Кнопка фиксирована снизу как у Preparations */}
-      {isAdmin && (
-        <button
-          onClick={() => navigate('/team/new')}
-          className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
-        >
-          + Добавить сотрудника
-        </button>
-
-
-      )}
       <Toast show={showToast} type={toastType} />
 
     </div>

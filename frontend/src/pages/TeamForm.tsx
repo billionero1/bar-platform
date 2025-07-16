@@ -262,13 +262,7 @@ export default function TeamFormPage() {
           Сделать менеджером (админом)
         </label>
 
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="btn-primary fixed bottom-[calc(56px+1rem)] left-1/2 -translate-x-1/2"
-        >
-          {isEdit ? 'Сохранить' : 'Добавить'}
-        </button>
+
       </form>
 
       {inviteLink && (

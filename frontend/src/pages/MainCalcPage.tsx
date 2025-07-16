@@ -153,7 +153,9 @@ export default function MainCalcPage() {
   // ---- UI ----
   return (
     <div className="h-screen flex flex-col p-4 bg-white">
+      <div className="flex-shrink-0">
       <h1 className="text-xl font-semibold mb-3">{prep.name}</h1>
+      
 
       {/* Форма ввода */}
       {focusIngredient === null && (
@@ -261,9 +263,9 @@ export default function MainCalcPage() {
           В первой строке программа считает <b>чистый выход</b> (после фильтрации), но если считаешь <b>под объем тары</b> для настаивания, используй вторую строку.<br/>
         </div>
       )}
-
+      </div>
       {/* Итоговый расчет */}
-      <div className="mt-4">
+      <div className="flex-1 overflow-y-auto pb-14">
         <p className="text-xl font-semibold mb-3">Ингредиенты</p>
         <ul>
           {calculatedIngredients.length === 0 ? (
@@ -291,12 +293,7 @@ export default function MainCalcPage() {
           )}
         </ul>
         </div>
-  <button
-    onClick={() => navigate(-1)}
-    className="btn-primary"
-  >
-    Назад к списку
-  </button>
+
 
 
     

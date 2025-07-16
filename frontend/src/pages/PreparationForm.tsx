@@ -470,15 +470,7 @@ export default function PreparationForm() {
 
       )}
 
-      <div className="fixed inset-x-0 bottom-[56px] flex justify-center px-4">
-        <button
-          onClick={save}
-          className="btn-primary fixed bottom-[calc(56px+1rem)]"
-        >
-          Сохранить
-        </button>
 
-      </div>
 
 
 
