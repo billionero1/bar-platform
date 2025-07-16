@@ -91,7 +91,7 @@ export default function Footer() {
   });
 
   return (
-    <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-2 shadow-inner">
+    <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-8 shadow-inner">
       {navItems.map((item, i) => (
         <div key={i} className={`relative ${item.hasSub ? 'group' : ''}`}>
           <button
