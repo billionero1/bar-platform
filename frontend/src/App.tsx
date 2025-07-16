@@ -19,9 +19,13 @@ import TeamPage         from './pages/TeamPage';
 import TeamFormPage     from './pages/TeamForm';
 import MainCalcPage     from './pages/MainCalcPage';
 import InviteComplete   from './pages/InviteComplete';
-import TtkPage          from './pages/TtkPage';      // ← заглушка для ТТК
-import LearnPage        from './pages/LearnPage';    // ← заглушка для обучалки
-import SettingsPage     from './pages/SettingsPage'; // ← заглушка для настроек
+
+/* Заглушки */
+import TtkPage        from './pages/TtkPage';
+import LearnPage      from './pages/LearnPage';
+import SettingsPage   from './pages/SettingsPage';
+import SandboxPage    from './pages/SandboxPage';
+import ProfilePage    from './pages/ProfilePage';
 
 /* ---------- guard ---------- */
 function Protected({
@@ -32,10 +36,9 @@ function Protected({
   adminOnly?: boolean;
 }) {
   const { isAuthenticated, isAdmin } = useAuth();
-
-  if (!isAuthenticated)          return <Navigate to="/"     replace />;
-  if (adminOnly && !isAdmin)     return <Navigate to="/main" replace />;
-  return children;
+  if (!isAuthenticated)        return <Navigate to="/"     replace />;
+  if (adminOnly && !isAdmin)   return <Navigate to="/main" replace />;
+  return <>{children}</>;
 }
 
 /* ---------- «оболочка» приложения ---------- */
@@ -44,81 +47,45 @@ function Shell() {
 
   return (
     <>
-      {/* Шапка */}
       <Header />
 
-      {/* Контент с учётом высоты шапки */}
       <main className={isAuthenticated ? 'pt-14' : ''}>
         <Routes>
           {/* Публичные */}
-          <Route path="/"            element={<Login          />} />
-          <Route path="/register"    element={<Register       />} />
+          <Route path="/"           element={<Login          />} />
+          <Route path="/register"   element={<Register       />} />
           <Route path="/invite/:token" element={<InviteComplete />} />
 
           {/* Авторизованным */}
-          <Route path="/main" element={
-            <Protected><MainPage/></Protected>
-          }/>
+          <Route path="/main"       element={<Protected><MainPage/></Protected>} />
+          <Route path="/main/:id"   element={<Protected><MainCalcPage/></Protected>} />
 
-          {/* Админ: ингредиенты */}
-          <Route path="/ingredients" element={
-            <Protected adminOnly><IngredientsPage/></Protected>
-          }/>
+          {/* Админ */}
+          <Route path="/ingredients"      element={<Protected adminOnly><IngredientsPage/></Protected>} />
+          <Route path="/preparations"     element={<Protected adminOnly><PreparationsPage/></Protected>} />
+          <Route path="/preparations/new" element={<Protected adminOnly><PreparationForm/></Protected>} />
+          <Route path="/preparations/:id" element={<Protected adminOnly><PreparationForm/></Protected>} />
+          <Route path="/team"             element={<Protected adminOnly><TeamPage/></Protected>} />
+          <Route path="/team/new"         element={<Protected adminOnly><TeamFormPage/></Protected>} />
+          <Route path="/team/:id"         element={<Protected adminOnly><TeamFormPage/></Protected>} />
 
-          {/* Админ: заготовки */}
-          <Route path="/preparations" element={
-            <Protected adminOnly><PreparationsPage/></Protected>
-          }/>
-          <Route path="/preparations/new" element={
-            <Protected adminOnly><PreparationForm/></Protected>
-          }/>
-          <Route path="/preparations/:id" element={
-            <Protected adminOnly><PreparationForm/></Protected>
-          }/>
-
-          {/* Админ: команда */}
-          <Route path="/team" element={
-            <Protected adminOnly><TeamPage/></Protected>
-          }/>
-          <Route path="/team/new" element={
-            <Protected adminOnly><TeamFormPage/></Protected>
-          }/>
-          <Route path="/team/:id" element={
-            <Protected adminOnly><TeamFormPage/></Protected>
-          }/>
-
-          {/* Остальные: калькулятор */}
-          <Route path="/main/:id" element={
-            <Protected><MainCalcPage/></Protected>
-          }/>
-
-          {/* Заглушка TTK */}
-          <Route path="/ttk" element={
-            <Protected><TtkPage/></Protected>
-          }/>
-
-          {/* Заглушка «Обучалки» */}
-          <Route path="/learn" element={
-            <Protected><LearnPage/></Protected>
-          }/>
-
-          {/* Заглушка «Настройки» */}
-          <Route path="/settings" element={
-            <Protected><SettingsPage/></Protected>
-          }/>
+          {/* Заглушки */}
+          <Route path="/ttk"      element={<Protected><TtkPage/></Protected>} />
+          <Route path="/learn"    element={<Protected><LearnPage/></Protected>} />
+          <Route path="/settings" element={<Protected><SettingsPage/></Protected>} />
+          <Route path="/sandbox"  element={<Protected><SandboxPage/></Protected>} />
+          <Route path="/profile"  element={<Protected><ProfilePage/></Protected>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
-      {/* Футер */}
       {isAuthenticated && <Footer />}
     </>
   );
 }
 
-/* ---------- root ---------- */
 export default function App() {
   return (
     <AuthProvider>
