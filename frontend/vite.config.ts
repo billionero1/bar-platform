@@ -1,3 +1,4 @@
+// vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -8,8 +9,8 @@ export default defineConfig({
 
     /* ——— PWA / service-worker ——— */
     VitePWA({
-      registerType: 'autoUpdate',           // SW обновится сам
-      includeAssets: ['icons/*.png'],        // что класть в кеш помимо обычного
+      registerType: 'autoUpdate',    // SW будет обновляться автоматически
+      includeAssets: ['icons/*.png'], // что класть в кеш помимо бандла
       manifest: {
         name:            'Ingredient Platform',
         short_name:      'Ingredients',
@@ -29,6 +30,16 @@ export default defineConfig({
             type: 'image/png'
           }
         ]
+      },
+      workbox: {
+        // сразу активировать новый SW без ожидания
+        skipWaiting: true,
+        // новый SW сразу возьмёт под контроль все клиенты
+        clientsClaim: true,
+        // удалять устаревшие кеши
+        cleanupOutdatedCaches: true,
+        // fallback на корень для навигационных запросов
+        navigateFallback: '/',
       }
     })
   ]

@@ -86,40 +86,38 @@ export default function MainPage() {
 
   return (
     <div className="h-screen flex flex-col p-4 bg-white">
-      <h1 className="text-xl font-semibold mb-3">Выбери заготовку для расчёта</h1>
-      <input
-        type="text"
-        placeholder="Поиск заготовок"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        className="w-full mb-2 rounded border px-3 py-2"
-      />
+      {/* Заголовок + поиск всегда сверху */}
+      <div className="flex-shrink-0">
+        <h1 className="text-xl font-semibold mb-3">Выбери заготовку для расчёта</h1>
+        <input
+          type="text"
+          placeholder="Поиск заготовок"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full mb-2 rounded border px-3 py-2"
+        />
+      </div>
 
-
-     {/*
-       Оборачиваем наш список в flex‑1, 
-       чтобы он занял всё оставшееся место,
-       и даём overflow-y-auto + padding-bottom 
-       под высоту футера (например pb-20 — это 5rem = 80px).
-     */}
-
-      <div className="flex-1 overflow-y-auto pb-20">
+      {/* Прокручиваемый список (с отступом под футер) */}
+      <div className="flex-1 overflow-y-auto pb-14">
         <ul className="space-y-1">
-        {filtered.length === 0 ? (
-          <li className="text-gray-400 text-sm">Ничего не найдено</li>
-        ) : (
-          filtered.map(prep => (
-            <li
-              key={prep.id}
-              className="rounded border p-3 cursor-pointer hover:bg-gray-50"
-              onClick={() => navigate(`/main/${prep.id}`)}
-            >
-              <span className="font-medium">{prep.name}</span>
-            </li>
-          ))
-        )}
-      </ul>
-     </div>
+          {filtered.length === 0 ? (
+            <li className="text-gray-400 text-sm">Ничего не найдено</li>
+          ) : (
+            filtered.map(prep => (
+              <li
+                key={prep.id}
+                className="rounded border p-3 cursor-pointer hover:bg-gray-50"
+                onClick={() => navigate(`/main/${prep.id}`)}
+              >
+                <span className="font-medium">{prep.name}</span>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+
+      {/* Тост */}
       <Toast show={showToast} type={toastType} />
     </div>
   );
