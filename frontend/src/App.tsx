@@ -4,10 +4,9 @@ import type { ReactElement } from 'react';
 
 import { AuthProvider, useAuth } from './AuthContext';
 
-/* UI-рамка: фикс-хедер и выдвижное меню */
-import Header     from './components/Header';
-import MenuDrawer from './components/MenuDrawer';
-import Footer     from './components/Footer';
+/* UI-рамка: фикс-хедер и новый футер */
+import Header from './components/Header';
+import Footer from './components/Footer';
 
 /* Страницы */
 import Login            from './pages/Login';
@@ -15,14 +14,12 @@ import Register         from './pages/Register';
 import MainPage         from './pages/MainPage';
 import IngredientsPage  from './pages/IngredientsPage';
 import PreparationsPage from './pages/Preparations';
-
+import PreparationForm  from './pages/PreparationForm';
 import TeamPage         from './pages/TeamPage';
-import PreparationForm from './pages/PreparationForm';
-import TeamFormPage from './pages/TeamForm';
-import MainCalcPage from './pages/MainCalcPage';
-import InviteComplete from './pages/InviteComplete';
-
-
+import TeamFormPage     from './pages/TeamForm';
+import MainCalcPage     from './pages/MainCalcPage';
+import InviteComplete   from './pages/InviteComplete';
+import TtkPage          from './pages/TtkPage';  // <- новая заглушка
 
 /* ---------- guard ---------- */
 function Protected({
@@ -45,62 +42,66 @@ function Shell() {
 
   return (
     <>
-      {/* Шапка монтируется всегда, внутри сама решит – рендериться ли (на login/register она скрыта) */}
+      {/* Шапка */}
       <Header />
 
-      {/* Меню появляется только после входа */}
-      {isAuthenticated && <MenuDrawer />}
-
-      {/* <main> получает отступ только если фикс-хедер реально есть */}
+      {/* Контент с учётом высоты шапки */}
       <main className={isAuthenticated ? 'pt-14' : ''}>
         <Routes>
           {/* Публичные */}
-          <Route path="/"          element={<Login    />} />
-          <Route path="/register"  element={<Register />} />
+          <Route path="/"            element={<Login          />} />
+          <Route path="/register"    element={<Register       />} />
           <Route path="/invite/:token" element={<InviteComplete />} />
 
-
-          {/* Всем авторизованным */}
+          {/* Авторизованным */}
           <Route path="/main" element={
             <Protected><MainPage/></Protected>
           }/>
 
-
-          {/* Админ-зона */}
+          {/* Админ: ингредиенты */}
           <Route path="/ingredients" element={
             <Protected adminOnly><IngredientsPage/></Protected>
           }/>
+
+          {/* Админ: заготовки */}
           <Route path="/preparations" element={
             <Protected adminOnly><PreparationsPage/></Protected>
           }/>
           <Route path="/preparations/new" element={
-            <Protected adminOnly><PreparationForm /></Protected>
-          } />
+            <Protected adminOnly><PreparationForm/></Protected>
+          }/>
           <Route path="/preparations/:id" element={
-            <Protected adminOnly><PreparationForm /></Protected>
-          } />
+            <Protected adminOnly><PreparationForm/></Protected>
+          }/>
+
+          {/* Админ: команда */}
           <Route path="/team" element={
             <Protected adminOnly><TeamPage/></Protected>
           }/>
           <Route path="/team/new" element={
-            <Protected adminOnly><TeamFormPage /></Protected>
+            <Protected adminOnly><TeamFormPage/></Protected>
           }/>
           <Route path="/team/:id" element={
-            <Protected adminOnly><TeamFormPage /></Protected>
+            <Protected adminOnly><TeamFormPage/></Protected>
           }/>
 
+          {/* Остальные: калькулятор */}
           <Route path="/main/:id" element={
-            <Protected><MainCalcPage /></Protected>
-          } />
+            <Protected><MainCalcPage/></Protected>
+          }/>
 
+          {/* Заглушка TTK */}
+          <Route path="/ttk" element={
+            <Protected><TtkPage/></Protected>
+          }/>
 
-          {/* fallback */}
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
-      {/* Футер — отображается только если пользователь авторизован и не на странице login */}
-      {isAuthenticated && window.location.pathname !== "/login" && <Footer />}
+      {/* Футер */}
+      {isAuthenticated && <Footer />}
     </>
   );
 }
