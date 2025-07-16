@@ -16,25 +16,21 @@ export default function Footer() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // ─── хуки ──────────────────────────────────────────
-  // состояние выпадающего меню для админа
+  // ─── state и эффекты ─────────────────────────────
   const [subOpen, setSubOpen] = useState(false);
-  // при смене пути всегда закрываем выпадашку
-  useEffect(() => {
-    setSubOpen(false);
-  }, [pathname]);
+  useEffect(() => { setSubOpen(false); }, [pathname]);
 
-  // ─── ранние возвраты ───────────────────────────────
+  // ─── ранние return ───────────────────────────────
   if (!isAuthenticated) return null;
 
-  // 1) скрываем на страницах-формах
+  // 1) На формах футер не показываем
   const isFormPage =
     ['/preparations/new', '/team/new'].some(p => pathname.startsWith(p)) ||
     /^\/preparations\/\d+$/.test(pathname) ||
     /^\/team\/\d+$/.test(pathname);
   if (isFormPage) return null;
 
-  // 2) на страницах списков у админа — одна кнопка «Добавить»
+  // 2) На списках у админа — одна кнопка «Добавить»
   const isAddListPage = isAdmin && ['/preparations', '/team'].includes(pathname);
   if (isAddListPage) {
     const to = pathname === '/preparations' ? '/preparations/new' : '/team/new';
@@ -50,7 +46,7 @@ export default function Footer() {
     );
   }
 
-  // ─── формируем пункты меню ────────────────────────
+  // ─── пункты меню ─────────────────────────────────
   type NavItem = {
     icon: React.FC<{ size: number }>;
     to?: string;
@@ -62,7 +58,6 @@ export default function Footer() {
   };
 
   const navItems: NavItem[] = [
-    // 1. Дом
     {
       icon: HomeIcon,
       to: '/main',
@@ -72,19 +67,19 @@ export default function Footer() {
         else navigate('/main');
       },
     },
-    // 2. TTK (книга)
     {
       icon: BookOpenIcon,
       to: '/ttk',
       active: pathname === '/ttk',
     },
-    // 3. Плюс: админ → пузырьки, персонал → песочница
     isAdmin
       ? {
           icon: PlusCircleIcon,
           special: true,
           hasSub: true,
-          active: ['/ingredients', '/preparations', '/team'].some(p => pathname.startsWith(p)),
+          active: ['/ingredients', '/preparations', '/team'].some(p =>
+            pathname.startsWith(p)
+          ),
           sub: [
             { label: 'Ингредиенты', to: '/ingredients' },
             { label: 'Заготовки',   to: '/preparations' },
@@ -98,13 +93,11 @@ export default function Footer() {
           to: '/sandbox',
           active: pathname === '/sandbox',
         },
-    // 4. Learn (шапка академии)
     {
       icon: GraduationCapIcon,
       to: '/learn',
       active: pathname === '/learn',
     },
-    // 5. Профиль
     {
       icon: UserCogIcon,
       to: '/profile',
@@ -112,11 +105,11 @@ export default function Footer() {
     },
   ];
 
-  // ─── отрисовка обычного футера ────────────────────
+  // ─── отрисовка футера ─────────────────────────────
   return (
     <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-4 shadow-inner">
       {navItems.map((item, i) => (
-        <div key={i} className="relative">
+        <div key={i} className="relative flex-1 flex justify-center">
           <button
             onClick={
               item.onClick ??
@@ -124,34 +117,50 @@ export default function Footer() {
                 if (item.to) navigate(item.to);
               })
             }
-            className={
+            className={`flex items-center justify-center p-2 rounded-full transition ${
               item.special
-                ? 'flex items-center justify-center bg-blue-600 text-white p-2 rounded-full'
-                : `flex items-center justify-center ${
-                    item.active ? 'text-blue-600' : 'text-gray-500'
-                  }`
-            }
+                ? `bg-blue-600 text-white ${subOpen ? 'ring-2 ring-blue-300' : ''}`
+                : item.active
+                ? 'text-blue-600'
+                : 'text-gray-500'
+            }`}
           >
-            <item.icon size={item.special ? 28 : 24} />
+            <item.icon size={24} />
           </button>
 
-          {/* админ‑меню‑пузырьки */}
+          {/* «цветок» — пузырьки для админа */}
           {item.hasSub && item.sub && subOpen && (
-            <div className="absolute bottom-full mb-2 flex flex-col items-center space-y-1">
-              {item.sub.map((sub, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setSubOpen(false);
-                    // если уже на той же странице — перезагрузим
-                    if (pathname === sub.to) window.location.reload();
-                    else navigate(sub.to);
-                  }}
-                  className="bg-white p-2 rounded-full shadow"
-                >
-                  {sub.label}
-                </button>
-              ))}
+            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 w-0 h-0">
+              {/* центральный пузырёк */}
+              <button
+                onClick={() => {
+                  setSubOpen(false);
+                  navigate(item.sub![1].to);
+                }}
+                className="absolute left-1/2 transform -translate-x-1/2 -bottom-12 bg-white p-2 rounded-full shadow"
+              >
+                {item.sub![1].label}
+              </button>
+              {/* левый пузырёк */}
+              <button
+                onClick={() => {
+                  setSubOpen(false);
+                  navigate(item.sub![0].to);
+                }}
+                className="absolute -left-12 -bottom-8 bg-white p-2 rounded-full shadow"
+              >
+                {item.sub![0].label}
+              </button>
+              {/* правый пузырёк */}
+              <button
+                onClick={() => {
+                  setSubOpen(false);
+                  navigate(item.sub![2].to);
+                }}
+                className="absolute left-12 -bottom-8 bg-white p-2 rounded-full shadow"
+              >
+                {item.sub![2].label}
+              </button>
             </div>
           )}
         </div>
