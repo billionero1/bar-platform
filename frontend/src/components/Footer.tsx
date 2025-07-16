@@ -136,39 +136,29 @@ export default function Footer() {
 
           {/* «цветок» — пузырьки для админа */}
           {item.hasSub && item.sub && subOpen && (
-            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4">
-              {/* центральный пузырёк */}
-              <button
-                onClick={() => {
-                  setSubOpen(false);
-                  navigate(item.sub![1].to);
-                }}
-                className="absolute bottom-12 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-full shadow"
-              >
-                {item.sub![1].label}
-              </button>
-              {/* левый пузырёк */}
-              <button
-                onClick={() => {
-                  setSubOpen(false);
-                  navigate(item.sub![0].to);
-                }}
-                className="absolute bottom-8 left-1/2 -ml-12 bg-white p-2 rounded-full shadow"
-              >
-                {item.sub![0].label}
-              </button>
-              {/* правый пузырёк */}
-              <button
-                onClick={() => {
-                  setSubOpen(false);
-                  navigate(item.sub![2].to);
-                }}
-                className="absolute bottom-8 left-1/2 ml-12 bg-white p-2 rounded-full shadow"
-              >
-                {item.sub![2].label}
-              </button>
+            <div
+              className="
+                absolute bottom-full 
+                left-1/2 transform -translate-x-1/2 
+                mb-4 flex items-center space-x-4
+              "
+            >
+              {item.sub.map((sub, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setSubOpen(false);
+                    if (pathname === sub.to) window.location.reload();
+                    else navigate(sub.to);
+                  }}
+                  className="bg-white p-2 rounded-full shadow"
+                >
+                  {sub.label}
+                </button>
+              ))}
             </div>
           )}
+
         </div>
       ))}
     </footer>
