@@ -1,11 +1,10 @@
-// src/pages/SettingsPage.tsx
+// src/pages/LearnPage.tsx
 import React from 'react';
 
-export default function SettingsPage() {
+export default function LearnPage() {
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold">Settings</h1>
-      <p>Здесь будет страница настроек.</p>
+    <div className="h-screen flex items-center justify-center">
+      <p className="text-gray-400">Страница настроек в разработке…</p>
     </div>
   );
 }
