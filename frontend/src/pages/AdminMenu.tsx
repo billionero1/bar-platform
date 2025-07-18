@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 export default function AdminMenu() {
   const navigate = useNavigate();
   return (
-    <div className="h-screen flex flex-col items-center justify-center space-y-6 bg-gray-50 p-4">
+    <div className="h-screen flex flex-col items-center bg-gray-50 p-4 pt-16 space-y-6">
       <h1 className="text-2xl font-semibold">Меню менеджера</h1>
 
       <button
