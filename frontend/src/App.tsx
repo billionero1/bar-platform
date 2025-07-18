@@ -1,7 +1,6 @@
 // src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactElement } from 'react';
-
 import { AuthProvider, useAuth } from './AuthContext';
 
 /* UI-рамка */
@@ -19,7 +18,7 @@ import PreparationForm  from './pages/PreparationForm';
 import TeamPage         from './pages/TeamPage';
 import TeamFormPage     from './pages/TeamForm';
 import InviteComplete   from './pages/InviteComplete';
-import AdminMenu        from './pages/AdminMenu';
+import AdminMenu        from './pages/AdminMenu'; // ← файл AdminMenu.tsx
 
 /* Заглушки */
 import TtkPage      from './pages/TtkPage';
@@ -32,7 +31,7 @@ function Protected({
   children,
   adminOnly = false,
 }: {
-  children : ReactElement;
+  children: ReactElement;
   adminOnly?: boolean;
 }) {
   const { isAuthenticated, isAdmin } = useAuth();
@@ -55,11 +54,10 @@ function Shell() {
           <Route path="/invite/:token" element={<InviteComplete />} />
 
           {/* авторизованный */}
-          <Route path="/main"       element={<Protected><MainPage/></Protected>} />
-          <Route path="/main/:id"   element={<Protected><MainCalcPage/></Protected>} />
+          <Route path="/main"     element={<Protected><MainPage/></Protected>} />
+          <Route path="/main/:id" element={<Protected><MainCalcPage/></Protected>} />
 
           {/* админ */}
-          <Route path="/adminmenu"       element={<Protected adminOnly><AdminMenu/></Protected>} />
           <Route path="/ingredients"      element={<Protected adminOnly><IngredientsPage/></Protected>} />
           <Route path="/preparations"     element={<Protected adminOnly><PreparationsPage/></Protected>} />
           <Route path="/preparations/new" element={<Protected adminOnly><PreparationForm/></Protected>} />
@@ -67,8 +65,9 @@ function Shell() {
           <Route path="/team"             element={<Protected adminOnly><TeamPage/></Protected>} />
           <Route path="/team/new"         element={<Protected adminOnly><TeamFormPage/></Protected>} />
           <Route path="/team/:id"         element={<Protected adminOnly><TeamFormPage/></Protected>} />
+          <Route path="/adminmenu"        element={<Protected adminOnly><AdminMenu/></Protected>} />
 
-          {/* заглушки */}
+          {/* остальные */}
           <Route path="/ttk"      element={<Protected><TtkPage/></Protected>} />
           <Route path="/learn"    element={<Protected><LearnPage/></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage/></Protected>} />

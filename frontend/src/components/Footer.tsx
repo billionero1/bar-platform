@@ -19,21 +19,28 @@ interface NavItem {
 }
 
 export default function Footer() {
+  // ─── хуки ─────────────────────────────────────
+  const [subOpen, setSubOpen] = useState(false);
   const { isAuthenticated, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // 0) если не залогинен — не показываем
+  // при смене пути закрываем всякие выпадашки
+  useEffect(() => {
+    setSubOpen(false);
+  }, [pathname]);
+
+  // ─── ранние возвраты ───────────────────────────
   if (!isAuthenticated) return null;
 
-  // 1) скрываем на формах
+  // 1) на формах добавления/редактирования — скрыть весь футер
   const isFormPage =
     ['/preparations/new', '/team/new'].some(p => pathname.startsWith(p)) ||
     /^\/preparations\/\d+$/.test(pathname) ||
     /^\/team\/\d+$/.test(pathname);
   if (isFormPage) return null;
 
-  // 2) админ на страницах списков «Заготовки» или «Команда» видит единственную кнопку Добавить
+  // 2) админ на списках «заготовок» и «команды» — одна кнопка «Добавить»
   if (isAdmin && ['/preparations', '/team'].includes(pathname)) {
     const to = pathname === '/preparations' ? '/preparations/new' : '/team/new';
     return (
@@ -49,10 +56,6 @@ export default function Footer() {
   }
 
   // 3) обычный футер
-  const [subOpen, setSubOpen] = useState(false);
-  // закрываем sub-menu при любом изменении маршрута
-  useEffect(() => { setSubOpen(false); }, [pathname]);
-
   const navItems: NavItem[] = [
     {
       icon: HomeIcon,
@@ -91,7 +94,7 @@ export default function Footer() {
       {navItems.map((item, i) => (
         <button
           key={i}
-          onClick={item.onClick ?? (() => item.to && navigate(item.to!))}
+          onClick={item.onClick ?? (() => item.to && navigate(item.to))}
           className={
             'flex items-center justify-center ' +
             (item.special
