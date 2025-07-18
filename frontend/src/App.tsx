@@ -18,9 +18,8 @@ import PreparationForm  from './pages/PreparationForm';
 import TeamPage         from './pages/TeamPage';
 import TeamFormPage     from './pages/TeamForm';
 import InviteComplete   from './pages/InviteComplete';
-import AdminMenu        from './pages/AdminMenu'; // ← файл AdminMenu.tsx
+import AdminMenu        from './pages/AdminMenu';
 
-/* Заглушки */
 import TtkPage      from './pages/TtkPage';
 import LearnPage    from './pages/LearnPage';
 import SettingsPage from './pages/SettingsPage';
@@ -40,46 +39,46 @@ function Protected({
   return <>{children}</>;
 }
 
-function Shell() {
+function AppShell() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <>
+    <div className="flex flex-col h-screen">
       <Header />
-      <main className={isAuthenticated ? 'pt-14' : ''}>
+      <main className="flex-1 overflow-hidden pt-14">
         <Routes>
           {/* публичные */}
-          <Route path="/"             element={<Login          />} />
-          <Route path="/register"     element={<Register       />} />
+          <Route path="/"              element={<Login />} />
+          <Route path="/register"      element={<Register />} />
           <Route path="/invite/:token" element={<InviteComplete />} />
 
           {/* авторизованный */}
-          <Route path="/main"     element={<Protected><MainPage/></Protected>} />
-          <Route path="/main/:id" element={<Protected><MainCalcPage/></Protected>} />
+          <Route path="/main"     element={<Protected><MainPage /></Protected>} />
+          <Route path="/main/:id" element={<Protected><MainCalcPage /></Protected>} />
 
           {/* админ */}
-          <Route path="/ingredients"      element={<Protected adminOnly><IngredientsPage/></Protected>} />
-          <Route path="/preparations"     element={<Protected adminOnly><PreparationsPage/></Protected>} />
-          <Route path="/preparations/new" element={<Protected adminOnly><PreparationForm/></Protected>} />
-          <Route path="/preparations/:id" element={<Protected adminOnly><PreparationForm/></Protected>} />
-          <Route path="/team"             element={<Protected adminOnly><TeamPage/></Protected>} />
-          <Route path="/team/new"         element={<Protected adminOnly><TeamFormPage/></Protected>} />
-          <Route path="/team/:id"         element={<Protected adminOnly><TeamFormPage/></Protected>} />
-          <Route path="/adminmenu"        element={<Protected adminOnly><AdminMenu/></Protected>} />
+          <Route path="/ingredients"      element={<Protected adminOnly><IngredientsPage /></Protected>} />
+          <Route path="/preparations"     element={<Protected adminOnly><PreparationsPage /></Protected>} />
+          <Route path="/preparations/new" element={<Protected adminOnly><PreparationForm /></Protected>} />
+          <Route path="/preparations/:id" element={<Protected adminOnly><PreparationForm /></Protected>} />
+          <Route path="/team"             element={<Protected adminOnly><TeamPage /></Protected>} />
+          <Route path="/team/new"         element={<Protected adminOnly><TeamFormPage /></Protected>} />
+          <Route path="/team/:id"         element={<Protected adminOnly><TeamFormPage /></Protected>} />
+          <Route path="/adminmenu"        element={<Protected adminOnly><AdminMenu /></Protected>} />
 
           {/* остальные */}
-          <Route path="/ttk"      element={<Protected><TtkPage/></Protected>} />
-          <Route path="/learn"    element={<Protected><LearnPage/></Protected>} />
-          <Route path="/settings" element={<Protected><SettingsPage/></Protected>} />
-          <Route path="/sandbox"  element={<Protected><SandboxPage/></Protected>} />
-          <Route path="/profile"  element={<Protected><ProfilePage/></Protected>} />
+          <Route path="/ttk"      element={<Protected><TtkPage /></Protected>} />
+          <Route path="/learn"    element={<Protected><LearnPage /></Protected>} />
+          <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
+          <Route path="/sandbox"  element={<Protected><SandboxPage /></Protected>} />
+          <Route path="/profile"  element={<Protected><ProfilePage /></Protected>} />
 
           {/* fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       {isAuthenticated && <Footer />}
-    </>
+    </div>
   );
 }
 
@@ -87,7 +86,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Shell />
+        <AppShell />
       </BrowserRouter>
     </AuthProvider>
   );
