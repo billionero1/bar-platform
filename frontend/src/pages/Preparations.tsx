@@ -191,61 +191,65 @@ for (let iter = 0; iter < 3; iter++) {
 
 
 
-  return (
-    <div className="flex flex-col h-full px-4 pb-[calc(56px+1rem)]">
-      <div className="flex-1 overflow-y-auto overscroll-contain">
-        <input
-          type="text"
-          placeholder="Поиск заготовок…"
-          value={formName}
-          onChange={e => setFormName(e.target.value)}
-          className="w-full mb-2 rounded border px-3 py-2"
-        />
-
-        {loading ? (
-          <p className="text-center text-sm text-gray-500">Загрузка…</p>
-        ) : (
-          <ul className="space-y-1">
-            {filtered.length === 0 ? (
-              <li className="text-center text-gray-500 py-4">Ничего не найдено</li>
-            ) : (
-              filtered.map(p => {
-                const costPerLiter = p.costPerUnit ?? null;
-                return (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between rounded border p-3 cursor-pointer hover:bg-gray-50"
-                    onClick={() => navigate(`/preparations/${p.id}`)}
-                  >
-                    <div>
-                      <p className="font-medium break-words whitespace-normal">{p.name}</p>
-                      {costPerLiter !== null && !isNaN(costPerLiter) ? (
-                        <p className="text-xs text-gray-500">
-                          Себестоимость за {p.yieldUnit === 'ml' || p.yieldUnit === 'l' ? 'л' : 'кг'}:{' '}
-                          <strong>{costPerLiter.toFixed(2)} ₽</strong>
-                        </p>
-                      ) : (
-                        <p className="text-xs text-gray-400 italic">Себестоимость не рассчитана</p>
-                      )}
-                    </div>
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        remove(p.id);
-                      }}
-                    >
-                      🗑
-                    </button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        )}
-      </div>
-
-      <Toast show={showToast} type={toastType} />
+return (
+  <div className="flex flex-col h-full px-4 pt-2 pb-[calc(56px+1rem)] relative">
+    {/* Поиск — зафиксирован */}
+    <div className="sticky top-0 z-10 bg-white pb-2">
+      <input
+        type="text"
+        placeholder="Поиск заготовок…"
+        value={formName}
+        onChange={e => setFormName(e.target.value)}
+        className="w-full rounded border px-3 py-2"
+      />
     </div>
-  );
+
+    {/* Список — прокручиваемый */}
+    <div className="flex-1 overflow-y-auto overscroll-contain">
+      {loading ? (
+        <p className="text-center text-sm text-gray-500">Загрузка…</p>
+      ) : (
+        <ul className="space-y-1">
+          {filtered.length === 0 ? (
+            <li className="text-center text-gray-500 py-4">Ничего не найдено</li>
+          ) : (
+            filtered.map(p => {
+              const costPerLiter = p.costPerUnit ?? null;
+              return (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between rounded border p-3 cursor-pointer hover:bg-gray-50"
+                  onClick={() => navigate(`/preparations/${p.id}`)}
+                >
+                  <div>
+                    <p className="font-medium break-words whitespace-normal">{p.name}</p>
+                    {costPerLiter !== null && !isNaN(costPerLiter) ? (
+                      <p className="text-xs text-gray-500">
+                        Себестоимость за {p.yieldUnit === 'ml' || p.yieldUnit === 'l' ? 'л' : 'кг'}:{' '}
+                        <strong>{costPerLiter.toFixed(2)} ₽</strong>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">Себестоимость не рассчитана</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      remove(p.id);
+                    }}
+                  >
+                    🗑
+                  </button>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      )}
+    </div>
+
+    <Toast show={showToast} type={toastType} />
+  </div>
+);
 
 }
