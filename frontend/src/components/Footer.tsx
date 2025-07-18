@@ -4,41 +4,38 @@ import {
   HomeIcon,
   BookOpenIcon,
   PlusCircleIcon,
-  UsersIcon,
   GraduationCapIcon,
   UserCogIcon,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
+interface NavItem {
+  icon: React.FC<{ size: number }>;
+  to?: string;
+  onClick?: () => void;
+  active: boolean;
+  special?: boolean;
+}
+
 export default function Footer() {
   const { isAuthenticated, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // 0) Хуки всегда в начале
-  const [subOpen, setSubOpen] = useState(false);
-  useEffect(() => {
-    setSubOpen(false);
-  }, [pathname]);
-
-  // 1) Не показываем, если не залогинен
+  // 0) если не залогинен — не показываем
   if (!isAuthenticated) return null;
 
-  // 2) Скрываем на формах
+  // 1) скрываем на формах
   const isFormPage =
     ['/preparations/new', '/team/new'].some(p => pathname.startsWith(p)) ||
     /^\/preparations\/\d+$/.test(pathname) ||
     /^\/team\/\d+$/.test(pathname);
   if (isFormPage) return null;
 
-  // 3) Админ на списках “Заготовки”/“Команда” — одна кнопка “Добавить”
-  const isAddListPage =
-    isAdmin && ['/preparations', '/team'].includes(pathname);
-  if (isAddListPage) {
-    const to = pathname === '/preparations'
-      ? '/preparations/new'
-      : '/team/new';
+  // 2) админ на страницах списков «Заготовки» или «Команда» видит единственную кнопку Добавить
+  if (isAdmin && ['/preparations', '/team'].includes(pathname)) {
+    const to = pathname === '/preparations' ? '/preparations/new' : '/team/new';
     return (
       <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-center py-4 shadow-inner">
         <button
@@ -51,16 +48,10 @@ export default function Footer() {
     );
   }
 
-  // 4) Обычный Footer
-  type NavItem = {
-    icon: React.FC<{ size: number }>;
-    to?: string;
-    onClick?: () => void;
-    active?: boolean;
-    special?: boolean;
-    hasSub?: boolean;
-    sub?: { label: string; to: string }[];
-  };
+  // 3) обычный футер
+  const [subOpen, setSubOpen] = useState(false);
+  // закрываем sub-menu при любом изменении маршрута
+  useEffect(() => { setSubOpen(false); }, [pathname]);
 
   const navItems: NavItem[] = [
     {
@@ -77,26 +68,12 @@ export default function Footer() {
       to: '/ttk',
       active: pathname === '/ttk',
     },
-    isAdmin
-      ? {
-          icon: PlusCircleIcon,
-          special: true,
-          hasSub: true,
-          active: ['/ingredients','/preparations','/team']
-            .some(p => pathname.startsWith(p)),
-          sub: [
-            { label: 'Ингредиенты', to: '/ingredients' },
-            { label: 'Заготовки',   to: '/preparations' },
-            { label: 'Команда',     to: '/team' },
-          ],
-          onClick: () => setSubOpen(o => !o),
-        }
-      : {
-          icon: PlusCircleIcon,
-          special: true,
-          to: '/sandbox',
-          active: pathname === '/sandbox',
-        },
+    {
+      icon: PlusCircleIcon,
+      special: true,
+      to: isAdmin ? '/adminmenu' : '/sandbox',
+      active: pathname === (isAdmin ? '/adminmenu' : '/sandbox'),
+    },
     {
       icon: GraduationCapIcon,
       to: '/learn',
@@ -112,61 +89,20 @@ export default function Footer() {
   return (
     <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-4 shadow-inner">
       {navItems.map((item, i) => (
-        <div key={i} className="relative">
-          <button
-            onClick={item.onClick ?? (() => item.to && navigate(item.to))}
-            className={
-              item.special
-                ? 'flex items-center justify-center bg-blue-600 text-white p-2 rounded-full transition-transform active:scale-90'
-                : `flex items-center justify-center ${
-                    item.active ? 'text-blue-600' : 'text-gray-500'
-                  }`
-            }
-          >
-            <item.icon size={item.special ? 28 : 24} />
-          </button>
-
-          {/* «Цветок» — три пузырька */}
-          {item.hasSub && item.sub && subOpen && (
-            <div
-              className="
-                absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4
-                flex items-center justify-center space-x-4
-              "
-            >
-              {/* левый */}
-              <button
-                onClick={() => {
-                  navigate(item.sub![0].to);
-                  setSubOpen(false);
-                }}
-                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-              >
-                {item.sub![0].label}
-              </button>
-              {/* центр */}
-              <button
-                onClick={() => {
-                  navigate(item.sub![1].to);
-                  setSubOpen(false);
-                }}
-                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-              >
-                {item.sub![1].label}
-              </button>
-              {/* правый */}
-              <button
-                onClick={() => {
-                  navigate(item.sub![2].to);
-                  setSubOpen(false);
-                }}
-                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
-              >
-                {item.sub![2].label}
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          key={i}
+          onClick={item.onClick ?? (() => item.to && navigate(item.to!))}
+          className={
+            'flex items-center justify-center ' +
+            (item.special
+              ? 'bg-blue-600 text-white p-2 rounded-full transition-transform active:scale-90'
+              : item.active
+                ? 'text-blue-600'
+                : 'text-gray-500')
+          }
+        >
+          <item.icon size={item.special ? 28 : 24} />
+        </button>
       ))}
     </footer>
   );
