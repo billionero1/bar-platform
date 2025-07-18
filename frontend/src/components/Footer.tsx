@@ -16,20 +16,29 @@ export default function Footer() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // 0) Если не залогинен — не показываем
+  // 0) Хуки всегда в начале
+  const [subOpen, setSubOpen] = useState(false);
+  useEffect(() => {
+    setSubOpen(false);
+  }, [pathname]);
+
+  // 1) Не показываем, если не залогинен
   if (!isAuthenticated) return null;
 
-  // 1) Скрываем футер на формах редактирования/добавления
+  // 2) Скрываем на формах
   const isFormPage =
     ['/preparations/new', '/team/new'].some(p => pathname.startsWith(p)) ||
     /^\/preparations\/\d+$/.test(pathname) ||
     /^\/team\/\d+$/.test(pathname);
   if (isFormPage) return null;
 
-  // 2) Админ на списках «Заготовки» и «Команда» видит только большую кнопку «Добавить»
-  const isAddListPage = isAdmin && ['/preparations', '/team'].includes(pathname);
+  // 3) Админ на списках “Заготовки”/“Команда” — одна кнопка “Добавить”
+  const isAddListPage =
+    isAdmin && ['/preparations', '/team'].includes(pathname);
   if (isAddListPage) {
-    const to = pathname === '/preparations' ? '/preparations/new' : '/team/new';
+    const to = pathname === '/preparations'
+      ? '/preparations/new'
+      : '/team/new';
     return (
       <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-center py-4 shadow-inner">
         <button
@@ -42,14 +51,7 @@ export default function Footer() {
     );
   }
 
-  // 3) Обычный футер
-  const [subOpen, setSubOpen] = useState(false);
-
-  // При любом переходе по URL — закрываем цветок‑меню
-  useEffect(() => {
-    setSubOpen(false);
-  }, [pathname]);
-
+  // 4) Обычный Footer
   type NavItem = {
     icon: React.FC<{ size: number }>;
     to?: string;
@@ -61,7 +63,6 @@ export default function Footer() {
   };
 
   const navItems: NavItem[] = [
-    // 1. Дом
     {
       icon: HomeIcon,
       to: '/main',
@@ -71,21 +72,18 @@ export default function Footer() {
         else navigate('/main');
       },
     },
-    // 2. TTK (книга)
     {
       icon: BookOpenIcon,
       to: '/ttk',
       active: pathname === '/ttk',
     },
-    // 3. «+»: админ → цветок‑меню; персонал → песочница
     isAdmin
       ? {
           icon: PlusCircleIcon,
           special: true,
           hasSub: true,
-          active: ['/ingredients', '/preparations', '/team'].some(p =>
-            pathname.startsWith(p)
-          ),
+          active: ['/ingredients','/preparations','/team']
+            .some(p => pathname.startsWith(p)),
           sub: [
             { label: 'Ингредиенты', to: '/ingredients' },
             { label: 'Заготовки',   to: '/preparations' },
@@ -99,13 +97,11 @@ export default function Footer() {
           to: '/sandbox',
           active: pathname === '/sandbox',
         },
-    // 4. Learn (шапка академии)
     {
       icon: GraduationCapIcon,
       to: '/learn',
       active: pathname === '/learn',
     },
-    // 5. Профиль
     {
       icon: UserCogIcon,
       to: '/profile',
@@ -118,12 +114,7 @@ export default function Footer() {
       {navItems.map((item, i) => (
         <div key={i} className="relative">
           <button
-            onClick={
-              item.onClick ??
-              (() => {
-                if (item.to) navigate(item.to);
-              })
-            }
+            onClick={item.onClick ?? (() => item.to && navigate(item.to))}
             className={
               item.special
                 ? 'flex items-center justify-center bg-blue-600 text-white p-2 rounded-full transition-transform active:scale-90'
@@ -135,29 +126,44 @@ export default function Footer() {
             <item.icon size={item.special ? 28 : 24} />
           </button>
 
-          {/* «цветок» — пузырьки для админа */}
+          {/* «Цветок» — три пузырька */}
           {item.hasSub && item.sub && subOpen && (
             <div
               className="
-                absolute bottom-full left-1/2 
-                transform -translate-x-1/2 mb-4 
-                flex items-center space-x-4
+                absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4
+                flex items-center justify-center space-x-4
               "
             >
-              {item.sub.map((sub, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    // сначала навигируем, затем закрываем меню
-                    if (pathname === sub.to) window.location.reload();
-                    else navigate(sub.to);
-                    setSubOpen(false);
-                  }}
-                  className="bg-white p-2 rounded-full shadow hover:bg-gray-100 transition"
-                >
-                  {sub.label}
-                </button>
-              ))}
+              {/* левый */}
+              <button
+                onClick={() => {
+                  navigate(item.sub![0].to);
+                  setSubOpen(false);
+                }}
+                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+              >
+                {item.sub![0].label}
+              </button>
+              {/* центр */}
+              <button
+                onClick={() => {
+                  navigate(item.sub![1].to);
+                  setSubOpen(false);
+                }}
+                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+              >
+                {item.sub![1].label}
+              </button>
+              {/* правый */}
+              <button
+                onClick={() => {
+                  navigate(item.sub![2].to);
+                  setSubOpen(false);
+                }}
+                className="bg-white p-2 rounded-full shadow hover:bg-gray-100"
+              >
+                {item.sub![2].label}
+              </button>
             </div>
           )}
         </div>
