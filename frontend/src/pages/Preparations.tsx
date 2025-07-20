@@ -192,7 +192,7 @@ for (let iter = 0; iter < 3; iter++) {
 
 
   return (
-    <div className="flex flex-col h-full px-4 pb-[calc(56px+1rem)]">
+    <div className="flex flex-col flex-1 px-4 pb-[72px]">
       <div className="flex-1 overflow-y-auto overscroll-contain">
         <input
           type="text"
