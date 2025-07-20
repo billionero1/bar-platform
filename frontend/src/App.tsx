@@ -49,7 +49,7 @@ function AppShell() {
         className="flex-1 overflow-y-auto"
         style={{
           paddingTop: '56px', // высота Header — если у тебя другая, меняй здесь!
-          paddingBottom: 'calc(56px + env(safe-area-inset-bottom))', // высота Footer + запас (если нужно, меняй!)
+          paddingBottom: 'calc(56px + 1rem + env(safe-area-inset-bottom))', // высота Footer + запас (если нужно, меняй!)
         }}
       >
         <Routes>
