@@ -43,14 +43,16 @@ export default function Footer() {
 // 2) админ на списках «заготовок» и «команды» — две кнопки: Назад и Добавить
 if (isAdmin && ['/preparations', '/team'].includes(pathname)) {
   const to = pathname === '/preparations' ? '/preparations/new' : '/team/new';
-  const backTo = '/main'; // или поменяй, если нужно на другую страницу
+  const backTo = '/main';
   return (
-    <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-between items-center px-6 py-4 shadow-inner z-30">
+    <footer
+      className="fixed inset-x-0 bottom-0 bg-white flex justify-between items-center px-6 py-4 shadow-inner z-30 min-h-[56px]"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <button
         onClick={() => navigate(backTo)}
         className="flex items-center text-blue-600 font-semibold px-4 py-2 rounded hover:bg-blue-50"
       >
-        {/* Lucide или Heroicon, например ArrowLeftIcon */}
         <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
         <span className="ml-2">Назад</span>
       </button>
@@ -63,6 +65,7 @@ if (isAdmin && ['/preparations', '/team'].includes(pathname)) {
     </footer>
   );
 }
+
 
 
   // 3) обычный футер
