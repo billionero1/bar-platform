@@ -45,7 +45,8 @@ function AppShell() {
   return (
     <div className="flex flex-col h-screen">
       <Header />
-      <main className="flex-1 overflow-hidden pt-14">
+      <main className={isAuthenticated ? 'pt-14 pb-[72px] flex-1 flex flex-col overflow-hidden' : ''}>
+
         <Routes>
           {/* публичные */}
           <Route path="/"              element={<Login />} />
