@@ -104,7 +104,7 @@ if (isAdmin && ['/preparations', '/team'].includes(pathname)) {
 
   return (
     <footer
-  className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-4 shadow-inner"
+  className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-4 shadow-inner  min-h-[56px]"
   style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
 >
       {navItems.map((item, i) => (
