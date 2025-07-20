@@ -19,12 +19,11 @@ import TeamPage         from './pages/TeamPage';
 import TeamFormPage     from './pages/TeamForm';
 import InviteComplete   from './pages/InviteComplete';
 import AdminMenu        from './pages/AdminMenu';
-
-import TtkPage      from './pages/TtkPage';
-import LearnPage    from './pages/LearnPage';
-import SettingsPage from './pages/SettingsPage';
-import SandboxPage  from './pages/SandboxPage';
-import ProfilePage  from './pages/ProfilePage';
+import TtkPage          from './pages/TtkPage';
+import LearnPage        from './pages/LearnPage';
+import SettingsPage     from './pages/SettingsPage';
+import SandboxPage      from './pages/SandboxPage';
+import ProfilePage      from './pages/ProfilePage';
 
 function Protected({
   children,
@@ -43,16 +42,16 @@ function AppShell() {
   const { isAuthenticated } = useAuth();
 
   return (
-        <div className="flex flex-col h-screen">
-              <Header />
-              {/* СКРОЛЛ ТОЛЬКО В ЭТОМ КОНТЕЙНЕРЕ! */}
-              <div
-                className="flex-1 overflow-y-auto"
-                style={{
-                  paddingBottom: 'calc(56px + 1rem + env(safe-area-inset-bottom))',
-                  paddingTop: '56px' // или 'theme(spacing.14)' если Tailwind
-                }}
-              >
+    <div className="flex flex-col h-screen">
+      <Header />
+      {/* Скроллим только этот блок! */}
+      <div
+        className="flex-1 overflow-y-auto"
+        style={{
+          paddingTop: '56px', // высота Header — если у тебя другая, меняй здесь!
+          paddingBottom: 'calc(56px + env(safe-area-inset-bottom))', // высота Footer + запас (если нужно, меняй!)
+        }}
+      >
         <Routes>
           {/* публичные */}
           <Route path="/"              element={<Login />} />

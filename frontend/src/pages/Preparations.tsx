@@ -192,7 +192,7 @@ for (let iter = 0; iter < 3; iter++) {
 
 
 return (
-  <div className="flex flex-col h-full px-4 pt-2 pb-[calc(56px+1rem)] relative">
+  <div className="flex flex-col h-full px-4 pt-2 relative">
     {/* Поиск — зафиксирован */}
     <div className="sticky top-0 z-10 bg-white pb-2">
       <input
@@ -251,5 +251,6 @@ return (
     <Toast show={showToast} type={toastType} />
   </div>
 );
+
 
 }
