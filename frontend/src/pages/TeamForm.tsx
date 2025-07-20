@@ -200,7 +200,7 @@ export default function TeamFormPage() {
 
 
   return (
-    <div className="h-screen flex flex-col p-4">
+    <div className="h-full flex flex-col p-4">
       <form
         id="team-form"
         ref={formRef}
