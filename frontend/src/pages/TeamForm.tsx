@@ -1,8 +1,9 @@
 // src/pages/TeamFormPage.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import Toast from '../components/Toast';
+import Footer from '../components/Footer';
 
 /* ─── утилиты для телефона ────────────────────────────── */
 /* ─── утилиты для телефона ────────────────────────────── */
@@ -37,6 +38,7 @@ export default function TeamFormPage() {
   const { userId } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [showToast, setShowToast] = useState(false);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
@@ -191,14 +193,17 @@ export default function TeamFormPage() {
     }
   }
 
+  const onFormSave = () => formRef.current?.requestSubmit();
+
   const phoneIsValid = isValidPhone(form.phone);
-  const canSubmit = !loading && form.name.trim() && phoneIsValid;
+  const canSubmit    = !loading && form.name.trim() && phoneIsValid;
 
 
   return (
     <div className="h-screen flex flex-col p-4">
       <form
         id="team-form"
+        ref={formRef}
         className="max-w-lg w-full mx-auto mt-6 space-y-3"
         onSubmit={handleSubmit}
       >
@@ -289,6 +294,12 @@ export default function TeamFormPage() {
       )}
 
       <Toast show={showToast} type={toastType} />
+      <Footer
+        showFormFooter
+        onFormSave={onFormSave}
+        isSaving={!canSubmit || loading}
+        saveLabel={isEdit ? 'Сохранить' : 'Добавить'}
+      />
     </div>
   );
 }
