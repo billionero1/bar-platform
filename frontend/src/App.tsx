@@ -48,7 +48,7 @@ function AppShell() {
       <div
         className="flex-1 overflow-y-auto"
         style={{
-          paddingTop: '56px', // высота Header — если у тебя другая, меняй здесь!
+          
           paddingBottom: 'calc(58px + env(safe-area-inset-bottom))', // высота Footer + запас (если нужно, меняй!)
         }}
       >
