@@ -43,9 +43,12 @@ function AppShell() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col min-h-screen">
       <Header />
-      <main className="flex-1 overflow-hidden pt-14">
+
+
+      <main className={isAuthenticated ? 'flex-1 pt-14 pb-[72px] flex flex-col overflow-hidden': ''}>
+
         <Routes>
           {/* публичные */}
           <Route path="/"              element={<Login />} />
