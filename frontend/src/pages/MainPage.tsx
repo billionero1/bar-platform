@@ -103,7 +103,7 @@ export default function MainPage() {
       </div>
 
       {/* Прокручиваемый список (с отступом под футер) */}
-      <div className="overflow-y-auto h-full pb-[calc(72px+env(safe-area-inset-bottom))]">
+      <div className="overflow-y-auto h-full pb-[calc(56px+env(safe-area-inset-bottom))]">
         <ul className="space-y-1">
           {sorted.length === 0 ? (
             <li className="text-gray-400 text-sm">Ничего не найдено</li>
