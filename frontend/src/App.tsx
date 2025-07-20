@@ -43,10 +43,17 @@ function AppShell() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col min-h-screen">
       <Header />
-      <main className={isAuthenticated ? 'pt-14 pb-[72px] flex-1 flex flex-col' : ''}>
 
+      {/*
+        Внешний контейнер: pt-14 для отдачи места под Header,
+        pb-[72px] под Footer, и overflow-hidden чтобы не
+        перекрывать внутренний скролл.
+      */}
+      <main className={isAuthenticated
+        ? 'flex-1 pt-14 pb-[72px] flex flex-col overflow-hidden'
+        : ''}>
 
         <Routes>
           {/* публичные */}
@@ -54,7 +61,7 @@ function AppShell() {
           <Route path="/register"      element={<Register />} />
           <Route path="/invite/:token" element={<InviteComplete />} />
 
-          {/* авторизованный */}
+          {/* авторизованные */}
           <Route path="/main"     element={<Protected><MainPage /></Protected>} />
           <Route path="/main/:id" element={<Protected><MainCalcPage /></Protected>} />
 
@@ -79,6 +86,7 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
       {isAuthenticated && <Footer />}
     </div>
   );

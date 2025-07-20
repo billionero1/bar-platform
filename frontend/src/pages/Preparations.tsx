@@ -205,7 +205,7 @@ return (
     </div>
 
     {/* Список — прокручиваемый */}
-    <div className="flex-1 overflow-y-auto overscroll-contain">
+    <div className="flex-1">
       {loading ? (
         <p className="text-center text-sm text-gray-500">Загрузка…</p>
       ) : (
