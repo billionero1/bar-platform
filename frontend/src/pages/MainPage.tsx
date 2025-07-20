@@ -87,7 +87,7 @@ export default function MainPage() {
   const sorted = filtered.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="h-screen flex flex-col p-4 bg-white">
+    <div className="h-full flex flex-col p-4 bg-white">
       {/* Заголовок + поиск всегда сверху */}
       <div className="flex-shrink-0">
         <h1 className="text-xl font-semibold mb-3">
