@@ -90,7 +90,10 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-4 shadow-inner">
+    <footer
+  className="fixed inset-x-0 bottom-0 bg-white flex justify-around py-4 shadow-inner"
+  style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+>
       {navItems.map((item, i) => (
         <button
           key={i}

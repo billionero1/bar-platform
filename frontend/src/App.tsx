@@ -43,9 +43,16 @@ function AppShell() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div className="flex flex-col h-screen">
-      <Header />
-      <main className="flex-1 overflow-hidden pt-14">
+        <div className="flex flex-col h-screen">
+              <Header />
+              {/* СКРОЛЛ ТОЛЬКО В ЭТОМ КОНТЕЙНЕРЕ! */}
+              <div
+                className="flex-1 overflow-y-auto"
+                style={{
+                  paddingBottom: 'calc(56px + 1rem + env(safe-area-inset-bottom))',
+                  paddingTop: '56px' // или 'theme(spacing.14)' если Tailwind
+                }}
+              >
         <Routes>
           {/* публичные */}
           <Route path="/"              element={<Login />} />
@@ -76,7 +83,7 @@ function AppShell() {
           {/* fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </main>
+      </div>
       {isAuthenticated && <Footer />}
     </div>
   );
