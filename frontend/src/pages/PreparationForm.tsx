@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import Toast from '../components/Toast';
+import Footer from '../components/Footer';
+
 
 
 
@@ -288,6 +290,7 @@ export default function PreparationForm() {
 
 
   return (
+  <>
   <form
     id="prep-form"
     onSubmit={(e) => {
@@ -482,6 +485,15 @@ export default function PreparationForm() {
 
 
     </form>
+    
+    <Footer
+      onFormSave={save}
+      isSaving={false}
+      saveLabel={isEditing ? "Сохранить" : "Добавить"}
+      showFormFooter={true}      // ← вот этот новый пропс
+    />
+   </>
+
   );
 
 }
