@@ -205,7 +205,7 @@ return (
     </div>
 
     {/* Список — прокручиваемый */}
-    <div className="flex-1 overflow-y-auto overscroll-contain pb-[calc(56px+env(safe-area-inset-bottom))]">
+    <div className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
       {loading ? (
         <p className="text-center text-sm text-gray-500">Загрузка…</p>
       ) : (
