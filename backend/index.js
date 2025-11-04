@@ -35,11 +35,10 @@ app.use('/team', teamRouter);
 const JWT_SECRET = 'supersecretkey';         // вынести в .env на проде
 const JWT_TTL    = '30d';
 
+const useSSL = process.env.DATABASE_URL && !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL);
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: useSSL ? { rejectUnauthorized: false } : false
 });
 
 const db = {
