@@ -22,15 +22,13 @@ const app = express();
 // ✅ Эти две строки — решение
 // доверяем заголовкам от nginx
 app.set('trust proxy', 1);
-
-// форсим https только для внешних запросов
+const FORCE_HTTPS = String(process.env.FORCE_HTTPS || '0').toLowerCase() === '1' ||
+                    String(process.env.FORCE_HTTPS || '').toLowerCase() === 'true';
 app.use((req, res, next) => {
+  if (!FORCE_HTTPS) return next();
   const xf = req.headers['x-forwarded-proto'];
-  // уже HTTPS или пришло от nginx как https — пропускаем
   if (req.secure || xf === 'https') return next();
-  // локальные проверки (127.0.0.1/localhost) — без редиректа
   if (req.hostname === '127.0.0.1' || req.hostname === 'localhost') return next();
-  // иначе редиректим на https (заработает после SSL)
   return res.redirect('https://' + req.headers.host + req.originalUrl);
 });
 
@@ -270,11 +268,8 @@ app.use('/preparations', preparationsRouter);
 /* ———————————————————  SERVER START  —————————————————— */
 // --- запуск сервера (защита от повторного старта) ---
 const PORT = process.env.PORT || 3001;
-
 if (!globalThis.__SERVER_STARTED__) {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✔  API  http://localhost:${PORT}`);
-  });
+  app.listen(PORT, '0.0.0.0', () => console.log(`✔  API  http://localhost:${PORT}`));
   globalThis.__SERVER_STARTED__ = true;
 }
 
