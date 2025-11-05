@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /**************************************************************************
  *  backend/index.js                               Node 18+  •  ES-modules
  *  ───────────────────────────────────────────────────────────────────────
@@ -19,12 +20,16 @@ import teamRouter from './routes/teamRouter.js';
 const app = express();
 
 // ✅ Эти две строки — решение
+// доверяем заголовкам от nginx
 app.set('trust proxy', 1);
+const FORCE_HTTPS = String(process.env.FORCE_HTTPS || '0').toLowerCase() === '1' ||
+                    String(process.env.FORCE_HTTPS || '').toLowerCase() === 'true';
 app.use((req, res, next) => {
-  if (req.headers['x-forwarded-proto'] !== 'https') {
-    return res.redirect('https://' + req.headers.host + req.url);
-  }
-  next();
+  if (!FORCE_HTTPS) return next();
+  const xf = req.headers['x-forwarded-proto'];
+  if (req.secure || xf === 'https') return next();
+  if (req.hostname === '127.0.0.1' || req.hostname === 'localhost') return next();
+  return res.redirect('https://' + req.headers.host + req.originalUrl);
 });
 
 app.use(cors());
@@ -35,11 +40,7 @@ app.use('/team', teamRouter);
 const JWT_SECRET = 'supersecretkey';         // вынести в .env на проде
 const JWT_TTL    = '30d';
 
-const useSSL = process.env.DATABASE_URL && !/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL);
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: useSSL ? { rejectUnauthorized: false } : false
-});
+import { pool } from './db.js';
 
 const db = {
   query: (text, params) => pool.query(text, params),
@@ -265,11 +266,11 @@ app.use('/preparations', preparationsRouter);
 
 
 /* ———————————————————  SERVER START  —————————————————— */
+// --- запуск сервера (защита от повторного старта) ---
 const PORT = process.env.PORT || 3001;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✔  API  http://localhost:${PORT}`);
-});
+if (!globalThis.__SERVER_STARTED__) {
+  app.listen(PORT, '0.0.0.0', () => console.log(`✔  API  http://localhost:${PORT}`));
+  globalThis.__SERVER_STARTED__ = true;
+}
 
 export { db, JWT_SECRET, JWT_TTL };
-
