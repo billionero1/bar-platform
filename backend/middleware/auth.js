@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from './config.js';
+import { JWT_SECRET } from '../config.js';
 
 export default function auth(req, res, next) {
   const hdr = req.headers.authorization || '';
