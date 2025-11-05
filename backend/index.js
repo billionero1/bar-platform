@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /**************************************************************************
  *  backend/index.js                               Node 18+  •  ES-modules
  *  ───────────────────────────────────────────────────────────────────────
@@ -19,12 +20,18 @@ import teamRouter from './routes/teamRouter.js';
 const app = express();
 
 // ✅ Эти две строки — решение
+// доверяем заголовкам от nginx
 app.set('trust proxy', 1);
+
+// форсим https только для внешних запросов
 app.use((req, res, next) => {
-  if (req.headers['x-forwarded-proto'] !== 'https') {
-    return res.redirect('https://' + req.headers.host + req.url);
-  }
-  next();
+  const xf = req.headers['x-forwarded-proto'];
+  // уже HTTPS или пришло от nginx как https — пропускаем
+  if (req.secure || xf === 'https') return next();
+  // локальные проверки (127.0.0.1/localhost) — без редиректа
+  if (req.hostname === '127.0.0.1' || req.hostname === 'localhost') return next();
+  // иначе редиректим на https (заработает после SSL)
+  return res.redirect('https://' + req.headers.host + req.originalUrl);
 });
 
 app.use(cors());
@@ -35,12 +42,7 @@ app.use('/team', teamRouter);
 const JWT_SECRET = 'supersecretkey';         // вынести в .env на проде
 const JWT_TTL    = '30d';
 
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+import { pool } from './db.js';
 
 const db = {
   query: (text, params) => pool.query(text, params),
@@ -266,11 +268,14 @@ app.use('/preparations', preparationsRouter);
 
 
 /* ———————————————————  SERVER START  —————————————————— */
+// --- запуск сервера (защита от повторного старта) ---
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✔  API  http://localhost:${PORT}`);
-});
+if (!globalThis.__SERVER_STARTED__) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✔  API  http://localhost:${PORT}`);
+  });
+  globalThis.__SERVER_STARTED__ = true;
+}
 
 export { db, JWT_SECRET, JWT_TTL };
-
