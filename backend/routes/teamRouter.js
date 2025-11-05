@@ -1,6 +1,6 @@
 import express from 'express';
 import { query as dbQuery } from '../db.js';
-import auth from '../auth.js';
+import auth from '../middleware/auth.js';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';

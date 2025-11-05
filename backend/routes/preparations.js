@@ -1,5 +1,5 @@
 import express from 'express';
-import auth from '../auth.js';
+import auth from '../middleware/auth.js';
 import { query as dbQuery } from '../db.js';
 
 const db = { query: (t,p)=>dbQuery(t,p) };
