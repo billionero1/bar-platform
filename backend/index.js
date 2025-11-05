@@ -24,8 +24,8 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json());
 
-// адаптер под legacy db.query(...)
-const db = { query: (t, p) => dbQuery(t, p) };
+// единый адаптер
+export const db = { query: (t, p) => dbQuery(t, p) };
 
 async function initSchema() {
   await db.query(`CREATE TABLE IF NOT EXISTS establishments (
@@ -37,11 +37,11 @@ async function initSchema() {
     establishment_id INTEGER NOT NULL REFERENCES establishments(id),
     phone TEXT UNIQUE,
     password_hash TEXT,
-    name TEXT, surname TEXT,
+    name TEXT,
+    surname TEXT,
     is_admin BOOLEAN DEFAULT false,
     must_change_pw BOOLEAN DEFAULT false
   )`);
-  await db.query(\`ALTER TABLE users ADD COLUMN IF NOT EXISTS surname TEXT\`);
 
   await db.query(`CREATE TABLE IF NOT EXISTS outlets (
     id SERIAL PRIMARY KEY,
@@ -98,9 +98,9 @@ async function boot() {
   await initSchema();
   const PORT = Number(process.env.PORT || 3001);
   app.listen(PORT, '127.0.0.1', () =>
-    console.log(\`backend http://127.0.0.1:${PORT}\`)
+    console.log(`backend http://127.0.0.1:${PORT}`)
   );
 }
 boot().catch((e) => { console.error('BOOT ERROR', e); process.exit(1); });
 
-export {};
+export default app;

@@ -1,10 +1,12 @@
 import express from 'express';
-import { db } from '../index.js';
-import auth from '../middleware/auth.js';
+import { query as dbQuery } from '../db.js';
+import auth from '../auth.js';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET, JWT_TTL } from '../index.js';
+import { JWT_SECRET, JWT_TTL } from '../config.js';
+
+const db = { query: (t, p) => dbQuery(t, p) };
 
 const router = express.Router();
 
