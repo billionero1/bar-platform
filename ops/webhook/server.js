@@ -2,17 +2,22 @@ const http = require('http');
 const { spawn } = require('child_process');
 const createHandler = require('github-webhook-handler');
 
-// ВАЖНО: этот секрет должен совпадать с секретом в настройке вебхука GitHub
-const handler = createHandler({ path: '/webhooks/github', secret: 'aE5995316_gh_deploy_2025' });
+// СЕКРЕТ: берём из env, иначе — твой старый
+const SECRET = process.env.WEBHOOK_SECRET || 'aE5995316_gh_deploy_2025';
 
-function runDeploy(res) {
+// Совпадает с nginx-прокси и настройкой GitHub
+const handler = createHandler({ path: '/webhooks/github', secret: SECRET });
+
+// Запускаем деплой (в фоне), не блокируя ответ GitHub
+function runDeploy(tag = 'push') {
+  console.log(`[webhook] deploy start (${tag})`);
   const child = spawn('/bin/bash', ['/home/app/deploy.sh'], { stdio: 'inherit' });
   child.on('close', (code) => {
-    if (code === 0) { res.statusCode = 200; res.end('deploy ok\n'); }
-    else { res.statusCode = 500; res.end('deploy failed\n'); }
+    console.log(`[webhook] deploy finished (${tag}) code=${code}`);
   });
 }
 
+// HTTP-сервер: handler сам отдаёт 200/401/… и вызывает callback только если путь не совпал
 const server = http.createServer((req, res) => {
   handler(req, res, function () {
     res.statusCode = 404;
@@ -20,16 +25,26 @@ const server = http.createServer((req, res) => {
   });
 });
 
-handler.on('error', function () {
-  // молча
-});
+// Раньше было «молча» — оставим поведение тем же (не шумим в логах)
+handler.on('error', function () { /* silent */ });
 
-// на любой push — деплой
+// На любой push — деплой (как у тебя и было)
 handler.on('push', function (event) {
-  const res = event.res || event.response || event; // на всякий
-  runDeploy(res);
+  const repo = event.payload && event.payload.repository && event.payload.repository.full_name;
+  const ref  = event.payload && event.payload.ref;
+  runDeploy(`push:${repo || 'unknown'}@${ref || 'unknown'}`);
 });
 
-server.listen(9000, '127.0.0.1', () => {
-  console.log('webhook on 127.0.0.1:9000');
+// Логи старта и корректное завершение под systemd
+server.on('listening', () => {
+  const addr = server.address();
+  console.log(`[webhook] listening on ${addr.address}:${addr.port}`);
 });
+
+server.on('error', (err) => {
+  console.error('[webhook] server error:', err);
+  // Пусть systemd нас перезапустит (и ExecStartPre очистит порт)
+  process.exit(1);
+});
+
+server.listen(9000, '127.0.0.1');
