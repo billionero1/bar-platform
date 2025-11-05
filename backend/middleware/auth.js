@@ -1,23 +1,14 @@
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config.js';
 
-const JWT_SECRET = 'supersecretkey'; // Убедись, что это совпадает с index.js
-
-const auth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Нет токена' });
-  }
-
-  const token = authHeader.split(' ')[1];
-
+export default function auth(req, res, next) {
+  const hdr = req.headers.authorization || '';
+  if (!hdr.startsWith('Bearer ')) return res.status(401).json({ error: 'Нет токена' });
+  const token = hdr.slice(7);
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Неверный токен' });
+  } catch {
+    res.status(401).json({ error: 'Неверный токен' });
   }
-};
-
-export default auth;
+}

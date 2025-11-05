@@ -1,15 +1,12 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
-import { db } from '../index.js';
+import { query as dbQuery } from '../db.js';
 
+const db = { query: (t,p)=>dbQuery(t,p) };
 const router = express.Router();
 
-/* ———————————————————————————————————————————————————————————————————————————————
-   Рекурсивная функция для расчёта себестоимости заготовки
-   — обход всех вложенных заготовок для точного расчёта
-——————————————————————————————————————————————————————————————————————————————— */
 async function getPreparationCost(prepId, db, visited = new Set()) {
-  if (visited.has(prepId)) return 0; // защита от циклов
+  if (visited.has(prepId)) return 0;
   visited.add(prepId);
 
   const { rows: ingredients } = await db.query(
@@ -23,21 +20,16 @@ async function getPreparationCost(prepId, db, visited = new Set()) {
   );
 
   let total = 0;
-
   for (const ing of ingredients) {
     if (!ing.isPreparation) {
-      // Обычный ингредиент
       const { rows: [data] } = await db.query(
-        `SELECT package_cost, package_volume
-         FROM ingredients
-         WHERE id = $1`,
+        `SELECT package_cost, package_volume FROM ingredients WHERE id = $1`,
         [ing.id]
       );
       if (data && data.package_cost && data.package_volume) {
         total += Number(ing.amount) * (Number(data.package_cost) / Number(data.package_volume));
       }
     } else {
-      // Вложенная заготовка — рекурсивно
       const { rows: [prep] } = await db.query(
         `SELECT yield_value FROM preparations WHERE id = $1`,
         [ing.id]
@@ -51,9 +43,6 @@ async function getPreparationCost(prepId, db, visited = new Set()) {
   return total;
 }
 
-/* ———————————————————————————————————————————————————————————————————————————————
-   GET / - получить все заготовки
-——————————————————————————————————————————————————————————————————————————————— */
 router.get('/', auth, async (req, res) => {
   try {
     const { rows: preps } = await db.query(
@@ -64,7 +53,6 @@ router.get('/', auth, async (req, res) => {
     );
 
     const result = [];
-
     for (const prep of preps) {
       const { rows: ingredients } = await db.query(
         `SELECT
@@ -105,9 +93,6 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-/* ———————————————————————————————————————————————————————————————————————————————
-   GET /:id - получить одну заготовку по id
-——————————————————————————————————————————————————————————————————————————————— */
 router.get('/:id', auth, async (req, res) => {
   const id = +req.params.id;
 
@@ -117,7 +102,6 @@ router.get('/:id', auth, async (req, res) => {
      WHERE id = $1 AND establishment_id = $2`,
     [id, req.user.establishment_id]
   );
-
   if (!prepRows.length) return res.sendStatus(404);
   const prep = prepRows[0];
 
@@ -153,12 +137,8 @@ router.get('/:id', auth, async (req, res) => {
   });
 });
 
-/* ———————————————————————————————————————————————————————————————————————————————
-   POST / - создание новой заготовки
-——————————————————————————————————————————————————————————————————————————————— */
 router.post('/', auth, async (req, res) => {
   const { title, yieldValue, altVolume, ingredients } = req.body;
-
   if (!title || !yieldValue || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
     return res.status(400).json({ error: 'Некорректные данные' });
   }
@@ -168,7 +148,6 @@ router.post('/', auth, async (req, res) => {
      VALUES ($1, $2, $3, $4) RETURNING id`,
     [title.trim(), yieldValue, altVolume ?? null, req.user.establishment_id]
   );
-
   const newId = rows[0].id;
 
   const insertValues = ingredients.map((ing, i) =>
@@ -192,13 +171,9 @@ router.post('/', auth, async (req, res) => {
   res.status(201).json({ id: newId });
 });
 
-/* ———————————————————————————————————————————————————————————————————————————————
-   PUT /:id - обновление существующей заготовки
-——————————————————————————————————————————————————————————————————————————————— */
 router.put('/:id', auth, async (req, res) => {
   const id = +req.params.id;
   const { title, yieldValue, altVolume, ingredients } = req.body;
-
   if (!title || !yieldValue || !ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
     return res.status(400).json({ error: 'Некорректные данные' });
   }
@@ -210,49 +185,33 @@ router.put('/:id', auth, async (req, res) => {
     [title.trim(), yieldValue, altVolume ?? null, id, req.user.establishment_id]
   );
 
-  await db.query(
-    `DELETE FROM preparation_ingredients
-     WHERE preparation_id = $1`,
-    [id]
-  );
+  await db.query(`DELETE FROM preparation_ingredients WHERE preparation_id = $1`, [id]);
 
-  const insertValues = ingredients.map((ing, i) =>
+  const insertValues2 = ingredients.map((ing, i) =>
     `(${id}, $${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`
   ).join(',');
 
-  const insertParams = ingredients.flatMap(ing => [
+  const insertParams2 = ingredients.flatMap(ing => [
     ing.id,
     ing.type === 'preparation',
     ing.amount
   ]);
 
-  if (insertParams.length > 0) {
+  if (insertParams2.length > 0) {
     await db.query(
       `INSERT INTO preparation_ingredients (preparation_id, ingredient_id, is_preparation, amount)
-       VALUES ${insertValues}`,
-      insertParams
+       VALUES ${insertValues2}`,
+      insertParams2
     );
   }
 
   res.sendStatus(200);
 });
 
-/* ———————————————————————————————————————————————————————————————————————————————
-   DELETE /:id - удаление заготовки
-——————————————————————————————————————————————————————————————————————————————— */
 router.delete('/:id', auth, async (req, res) => {
   const id = +req.params.id;
-
-  await db.query(
-    `DELETE FROM preparation_ingredients WHERE preparation_id = $1`,
-    [id]
-  );
-
-  await db.query(
-    `DELETE FROM preparations WHERE id = $1 AND establishment_id = $2`,
-    [id, req.user.establishment_id]
-  );
-
+  await db.query(`DELETE FROM preparation_ingredients WHERE preparation_id = $1`, [id]);
+  await db.query(`DELETE FROM preparations WHERE id = $1 AND establishment_id = $2`, [id, req.user.establishment_id]);
   res.sendStatus(200);
 });
 
