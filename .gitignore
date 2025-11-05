@@ -1,1 +1,21 @@
+# Node
+node_modules/
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+
+# Vite/React build
+frontend/dist/
 .DS_Store
+
+# Env/секреты
+.env
+backend/.env
+ops/*.pem
+
+# Nginx/lets-encrypt на сервере — только шаблон храним
+/etc/nginx/
+/var/www/
+
+# PM2/systemd артефакты
+/.pm2/
