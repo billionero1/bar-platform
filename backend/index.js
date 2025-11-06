@@ -3,6 +3,8 @@ import express  from 'express';
 import cors     from 'cors';
 import { query as dbQuery } from './db.js';
 
+import { authRouter } from './middleware/auth.js';
+
 import preparationsRouter from './routes/preparations.js';
 import ingredientsRouter  from './routes/ingredientsRouter.js';
 import teamRouter         from './routes/teamRouter.js';
@@ -88,6 +90,10 @@ async function initSchema() {
   )`);
 }
 
+// публичные
+app.use('/auth', authRouter);
+
+// ресурсные роуты сами подключают auth внутри себя
 app.use('/team',         teamRouter);
 app.use('/ingredients',  ingredientsRouter);
 app.use('/preparations', preparationsRouter);
@@ -102,5 +108,11 @@ async function boot() {
   );
 }
 boot().catch((e) => { console.error('BOOT ERROR', e); process.exit(1); });
+
+// финальный обработчик ошибок, чтобы видеть стек и отдавать JSON
+app.use((err, _req, res, _next) => {
+  console.error('UNHANDLED ERROR:', err);
+  res.status(500).json({ error: 'internal_error' });
+});
 
 export default app;

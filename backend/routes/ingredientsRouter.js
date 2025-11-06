@@ -9,9 +9,9 @@ router.get('/', auth, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT id, name, package_volume AS "packVolume", package_cost AS "packCost"
-       FROM ingredients
-       WHERE establishment_id = $1
-       ORDER BY name`,
+         FROM ingredients
+        WHERE establishment_id = $1
+        ORDER BY name`,
       [req.user.establishment_id]
     );
 
@@ -21,8 +21,8 @@ router.get('/', auth, async (req, res) => {
       packVolume: row.packVolume,
       packCost: row.packCost,
       costPerUnit: (row.packVolume && row.packCost && row.packVolume > 0)
-                   ? +(row.packCost / row.packVolume).toFixed(4)
-                   : null,
+        ? +(row.packCost / row.packVolume).toFixed(4)
+        : null,
       type: 'ingredient',
     }));
 
@@ -52,8 +52,8 @@ router.put('/:id', auth, async (req, res) => {
 
   await db.query(
     `UPDATE ingredients
-     SET name = $1, package_volume = $2, package_cost = $3
-     WHERE id = $4 AND establishment_id = $5`,
+        SET name = $1, package_volume = $2, package_cost = $3
+      WHERE id = $4 AND establishment_id = $5`,
     [name.trim(), packVolume ?? null, packCost ?? null, id, req.user.establishment_id]
   );
   res.sendStatus(200);

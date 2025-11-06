@@ -47,8 +47,8 @@ router.get('/', auth, async (req, res) => {
   try {
     const { rows: preps } = await db.query(
       `SELECT id, title, yield_value, alt_volume
-       FROM preparations
-       WHERE establishment_id = $1`,
+         FROM preparations
+        WHERE establishment_id = $1`,
       [req.user.establishment_id]
     );
 
@@ -98,8 +98,8 @@ router.get('/:id', auth, async (req, res) => {
 
   const { rows: prepRows } = await db.query(
     `SELECT id, title, yield_value, alt_volume
-     FROM preparations
-     WHERE id = $1 AND establishment_id = $2`,
+       FROM preparations
+      WHERE id = $1 AND establishment_id = $2`,
     [id, req.user.establishment_id]
   );
   if (!prepRows.length) return res.sendStatus(404);
@@ -180,8 +180,8 @@ router.put('/:id', auth, async (req, res) => {
 
   await db.query(
     `UPDATE preparations
-     SET title = $1, yield_value = $2, alt_volume = $3
-     WHERE id = $4 AND establishment_id = $5`,
+        SET title = $1, yield_value = $2, alt_volume = $3
+      WHERE id = $4 AND establishment_id = $5`,
     [title.trim(), yieldValue, altVolume ?? null, id, req.user.establishment_id]
   );
 
@@ -211,7 +211,10 @@ router.put('/:id', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
   const id = +req.params.id;
   await db.query(`DELETE FROM preparation_ingredients WHERE preparation_id = $1`, [id]);
-  await db.query(`DELETE FROM preparations WHERE id = $1 AND establishment_id = $2`, [id, req.user.establishment_id]);
+  await db.query(
+    `DELETE FROM preparations WHERE id = $1 AND establishment_id = $2`,
+    [id, req.user.establishment_id]
+  );
   res.sendStatus(200);
 });
 
