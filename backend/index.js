@@ -1,17 +1,16 @@
+// backend/index.js
 import 'dotenv/config';
-import express  from 'express';
-import cors     from 'cors';
-import { query as dbQuery } from './db.js';
+import express from 'express';
+import cors from 'cors';
 
-import { authRouter } from './middleware/auth.js';
-
-import preparationsRouter from './routes/preparations.js';
-import ingredientsRouter  from './routes/ingredientsRouter.js';
-import teamRouter         from './routes/teamRouter.js';
+// v1 роуты (ты их уже положил в backend/routes/v1/*)
+import v1Auth         from './routes/v1/auth.js';
+import v1Ingredients  from './routes/v1/ingredients.js';
+import v1Preparations from './routes/v1/preparations.js';
 
 const app = express();
 
-// доверяем nginx и (опц.) форсим https
+/* доверяем nginx и (опц.) форсим https */
 app.set('trust proxy', 1);
 const FORCE_HTTPS = String(process.env.FORCE_HTTPS || '0').toLowerCase() === '1'
                  || String(process.env.FORCE_HTTPS || '').toLowerCase() === 'true';
@@ -23,96 +22,28 @@ app.use((req, res, next) => {
   return res.redirect('https://' + req.headers.host + req.originalUrl);
 });
 
-app.use(cors());
+/* базовые мидлвары */
+app.use(cors({ origin: true, credentials: true })); // для refresh-куки
 app.use(express.json());
 
-// единый адаптер
-export const db = { query: (t, p) => dbQuery(t, p) };
+/* v1 API */
+app.use('/v1/auth',         v1Auth);
+app.use('/v1/ingredients',  v1Ingredients);
+app.use('/v1/preparations', v1Preparations);
 
-async function initSchema() {
-  await db.query(`CREATE TABLE IF NOT EXISTS establishments (
-    id SERIAL PRIMARY KEY, name TEXT NOT NULL
-  )`);
-
-  await db.query(`CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-    phone TEXT UNIQUE,
-    password_hash TEXT,
-    name TEXT,
-    surname TEXT,
-    is_admin BOOLEAN DEFAULT false,
-    must_change_pw BOOLEAN DEFAULT false
-  )`);
-
-  await db.query(`CREATE TABLE IF NOT EXISTS outlets (
-    id SERIAL PRIMARY KEY,
-    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-    name TEXT NOT NULL
-  )`);
-
-  await db.query(`CREATE TABLE IF NOT EXISTS ingredients (
-    id SERIAL PRIMARY KEY,
-    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-    name TEXT NOT NULL,
-    package_volume REAL,
-    package_cost REAL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  await db.query(`CREATE TABLE IF NOT EXISTS preparations (
-    id SERIAL PRIMARY KEY,
-    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-    title TEXT NOT NULL,
-    yield_value REAL,
-    alt_volume TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  await db.query(`CREATE TABLE IF NOT EXISTS team (
-    id SERIAL PRIMARY KEY,
-    establishment_id INTEGER NOT NULL REFERENCES establishments(id),
-    phone TEXT UNIQUE,
-    password_hash TEXT,
-    name TEXT,
-    surname TEXT,
-    is_admin BOOLEAN DEFAULT false,
-    must_change_pw BOOLEAN DEFAULT false,
-    invite_token TEXT
-  )`);
-
-  await db.query(`CREATE TABLE IF NOT EXISTS preparation_ingredients (
-    id SERIAL PRIMARY KEY,
-    preparation_id INTEGER NOT NULL REFERENCES preparations(id),
-    ingredient_id INTEGER NOT NULL,
-    is_preparation BOOLEAN DEFAULT false,
-    amount REAL NOT NULL
-  )`);
-}
-
-// публичные
-app.use('/auth', authRouter);
-
-// ресурсные роуты сами подключают auth внутри себя
-app.use('/team',         teamRouter);
-app.use('/ingredients',  ingredientsRouter);
-app.use('/preparations', preparationsRouter);
-
+/* healthcheck */
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 
-async function boot() {
-  await initSchema();
-  const PORT = Number(process.env.PORT || 3001);
-  app.listen(PORT, '127.0.0.1', () =>
-    console.log(`backend http://127.0.0.1:${PORT}`)
-  );
-}
-boot().catch((e) => { console.error('BOOT ERROR', e); process.exit(1); });
-
-// финальный обработчик ошибок, чтобы видеть стек и отдавать JSON
+/* финальный обработчик ошибок */
 app.use((err, _req, res, _next) => {
   console.error('UNHANDLED ERROR:', err);
   res.status(500).json({ error: 'internal_error' });
+});
+
+/* bootstrap */
+const PORT = Number(process.env.PORT || 3001);
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`backend http://127.0.0.1:${PORT}`);
 });
 
 export default app;

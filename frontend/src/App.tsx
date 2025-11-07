@@ -3,11 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactElement } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 
-/* UI-рамка */
 import Header from './components/Header';
 import Footer from './components/Footer';
 
-/* Страницы */
 import Login            from './pages/Login';
 import Register         from './pages/Register';
 import MainPage         from './pages/MainPage';
@@ -32,9 +30,13 @@ function Protected({
   children: ReactElement;
   adminOnly?: boolean;
 }) {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+
+  if (loading) return null; // можно повесить сплэш
+
   if (!isAuthenticated)        return <Navigate to="/"     replace />;
   if (adminOnly && !isAdmin)   return <Navigate to="/main" replace />;
+
   return <>{children}</>;
 }
 
@@ -44,12 +46,12 @@ function AppShell() {
   return (
     <div className="flex flex-col h-screen">
       <Header />
-      {/* Скроллим только этот блок! */}
+      {/* Скроллим только контентную область */}
       <div
         className="flex-1 overflow-y-auto"
         style={{
           paddingTop: '56px',
-          paddingBottom: 'calc(56px + env(safe-area-inset-bottom))', // высота Footer + запас (если нужно, меняй!)
+          paddingBottom: 'calc(56px + env(safe-area-inset-bottom))',
         }}
       >
         <Routes>
@@ -58,11 +60,11 @@ function AppShell() {
           <Route path="/register"      element={<Register />} />
           <Route path="/invite/:token" element={<InviteComplete />} />
 
-          {/* авторизованный */}
+          {/* авторизованные */}
           <Route path="/main"     element={<Protected><MainPage /></Protected>} />
           <Route path="/main/:id" element={<Protected><MainCalcPage /></Protected>} />
 
-          {/* админ */}
+          {/* управленческие */}
           <Route path="/ingredients"      element={<Protected adminOnly><IngredientsPage /></Protected>} />
           <Route path="/preparations"     element={<Protected adminOnly><PreparationsPage /></Protected>} />
           <Route path="/preparations/new" element={<Protected adminOnly><PreparationForm /></Protected>} />
@@ -72,7 +74,7 @@ function AppShell() {
           <Route path="/team/:id"         element={<Protected adminOnly><TeamFormPage /></Protected>} />
           <Route path="/adminmenu"        element={<Protected adminOnly><AdminMenu /></Protected>} />
 
-          {/* остальные */}
+          {/* прочие */}
           <Route path="/ttk"      element={<Protected><TtkPage /></Protected>} />
           <Route path="/learn"    element={<Protected><LearnPage /></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
