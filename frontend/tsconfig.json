@@ -1,32 +1,33 @@
 {
   "compilerOptions": {
+    /* базовые настройки */
     "target": "ESNext",
     "useDefineForClassFields": true,
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
 
+    /* JS и типы */
     "allowJs": false,
     "skipLibCheck": true,
 
-    /* чтобы не ругался на named-/default-экспорты  */
-    "esModuleInterop": true,                    // ← было false
-
+    /* модули и импорт */
+    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
-
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
 
-    /* новый JSX-runtime */
-    "jsx": "react-jsx",
+    /* строгие проверки */
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
 
-    /* главное добавление: React-типы для JSX */
-    "types": ["react", "react-dom"]            // ← добавлено
+    /* JSX и React */
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom", "vite/client", "node"]
   },
 
-  "include": ["src"]
+  /* теперь TypeScript видит src и сам конфиг */
+  "include": ["src", "vite.config.ts"]
 }

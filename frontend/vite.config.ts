@@ -1,24 +1,31 @@
 // frontend/vite.config.ts
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig, loadEnv } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
-const API = process.env.VITE_API_URL || '';
+export default defineConfig(({ mode }) => {
+  // читаем переменные окружения (VITE_*) из .env.*
+  const env = loadEnv(mode, process.cwd(), '')
+  const API = env.VITE_API_URL || '' // если пусто — включаем dev-proxy
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5173,
-    strictPort: true,
-    // удобный dev-прокси: если VITE_API_URL не задан, шлём на локальный бэк
-    proxy: API ? undefined : {
-      '/v1': {
-        target: 'http://127.0.0.1:3001',
-        changeOrigin: true,
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
       },
     },
-  },
-  // для некоторых либ, ожидающих process.env
-  define: {
-    'process.env': {},
-  },
-});
+    server: {
+      port: 5173,
+      strictPort: true,
+      proxy: API
+        ? undefined
+        : {
+            '/v1': {
+              target: 'http://127.0.0.1:3001',
+              changeOrigin: true,
+            },
+          },
+    },
+  }
+})

@@ -1,14 +1,31 @@
-const BASE = import.meta.env.VITE_API_URL;
+// src/lib/api.ts
+const BASE = import.meta.env.VITE_API_URL || ''; 
+// в проде у тебя nginx проксирует /v1 → бекенд, поэтому BASE можно оставить пустым
+// локально dev-proxy из vite.config.ts тоже ловит /v1
 
-export async function api<T=any>(path: string, opts: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include', // важно для refresh-куки
-    headers: { 'Content-Type': 'application/json', ...(opts.headers||{}) },
-    ...opts,
-  });
+type Opts = RequestInit & { skipJson?: boolean };
+
+export async function api(path: string, opts: Opts = {}) {
+  const url = path.startsWith('http') ? path : `${BASE}${path}`;
+  const init: RequestInit = {
+    credentials: opts.credentials, // важно: для refresh-куки указывать 'include'
+    method: opts.method || 'GET',
+    headers: {
+      ...(opts.headers || {}),
+    },
+    body: opts.body,
+  };
+
+  const res = await fetch(url, init);
   if (!res.ok) {
-    const txt = await res.text().catch(()=> '');
-    throw new Error(txt || `HTTP ${res.status}`);
+    const text = await res.text().catch(() => '');
+    // попробуем распарсить json, но не упадём
+    let msg: any = text;
+    try { msg = JSON.parse(text); } catch {}
+    throw new Error(msg?.error || msg || `HTTP ${res.status}`);
   }
-  return res.json();
+
+  if (opts.skipJson) return res;
+  const data = await res.json();
+  return data;
 }

@@ -6,8 +6,10 @@ import { AuthProvider, useAuth } from './AuthContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 
-import Login            from './pages/Login';
+import LoginPhone       from './pages/LoginPhone';
+import LoginPin         from './pages/LoginPin';
 import Register         from './pages/Register';
+
 import MainPage         from './pages/MainPage';
 import MainCalcPage     from './pages/MainCalcPage';
 import IngredientsPage  from './pages/IngredientsPage';
@@ -31,12 +33,9 @@ function Protected({
   adminOnly?: boolean;
 }) {
   const { isAuthenticated, isAdmin, loading } = useAuth();
-
-  if (loading) return null; // можно повесить сплэш
-
-  if (!isAuthenticated)        return <Navigate to="/"     replace />;
-  if (adminOnly && !isAdmin)   return <Navigate to="/main" replace />;
-
+  if (loading) return null;
+  if (!isAuthenticated)        return <Navigate to="/login" replace />;
+  if (adminOnly && !isAdmin)   return <Navigate to="/main"  replace />;
   return <>{children}</>;
 }
 
@@ -46,25 +45,21 @@ function AppShell() {
   return (
     <div className="flex flex-col h-screen">
       <Header />
-      {/* Скроллим только контентную область */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{
-          paddingTop: '56px',
-          paddingBottom: 'calc(56px + env(safe-area-inset-bottom))',
-        }}
-      >
+      <div className="flex-1 overflow-y-auto" style={{ paddingTop: 56, paddingBottom: 56 }}>
         <Routes>
-          {/* публичные */}
-          <Route path="/"              element={<Login />} />
-          <Route path="/register"      element={<Register />} />
-          <Route path="/invite/:token" element={<InviteComplete />} />
+          {/* редирект на логин */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* авторизованные */}
+          {/* новый логин-флоу */}
+          <Route path="/login"      element={<LoginPhone />} />
+          <Route path="/login/pin"  element={<LoginPin   />} />
+          <Route path="/register"   element={<Register   />} />
+
+          {/* гостю недоступно */}
           <Route path="/main"     element={<Protected><MainPage /></Protected>} />
           <Route path="/main/:id" element={<Protected><MainCalcPage /></Protected>} />
 
-          {/* управленческие */}
+          {/* manager-only */}
           <Route path="/ingredients"      element={<Protected adminOnly><IngredientsPage /></Protected>} />
           <Route path="/preparations"     element={<Protected adminOnly><PreparationsPage /></Protected>} />
           <Route path="/preparations/new" element={<Protected adminOnly><PreparationForm /></Protected>} />
@@ -74,15 +69,15 @@ function AppShell() {
           <Route path="/team/:id"         element={<Protected adminOnly><TeamFormPage /></Protected>} />
           <Route path="/adminmenu"        element={<Protected adminOnly><AdminMenu /></Protected>} />
 
-          {/* прочие */}
+          {/* прочее */}
+          <Route path="/invite/:token" element={<InviteComplete />} />
           <Route path="/ttk"      element={<Protected><TtkPage /></Protected>} />
           <Route path="/learn"    element={<Protected><LearnPage /></Protected>} />
           <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
           <Route path="/sandbox"  element={<Protected><SandboxPage /></Protected>} />
           <Route path="/profile"  element={<Protected><ProfilePage /></Protected>} />
 
-          {/* fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
       {isAuthenticated && <Footer />}
