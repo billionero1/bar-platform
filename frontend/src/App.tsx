@@ -1,96 +1,36 @@
-// src/App.tsx
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import type { ReactElement } from 'react';
-import { AuthProvider, useAuth } from './AuthContext';
+import React, { useContext, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthContext } from './AuthContext';
 
-import Header from './components/Header';
-import Footer from './components/Footer';
+import LoginPassword from './pages/LoginPassword';
+import LoginPin from './pages/LoginPin';
+import Register from './pages/Register';
 
-import LoginPhone       from './pages/LoginPhone';
-import LoginPin         from './pages/LoginPin';
-import Register         from './pages/Register';
-
-import MainPage         from './pages/MainPage';
-import MainCalcPage     from './pages/MainCalcPage';
-import IngredientsPage  from './pages/IngredientsPage';
-import PreparationsPage from './pages/Preparations';
-import PreparationForm  from './pages/PreparationForm';
-import TeamPage         from './pages/TeamPage';
-import TeamFormPage     from './pages/TeamForm';
-import InviteComplete   from './pages/InviteComplete';
-import AdminMenu        from './pages/AdminMenu';
-import TtkPage          from './pages/TtkPage';
-import LearnPage        from './pages/LearnPage';
-import SettingsPage     from './pages/SettingsPage';
-import SandboxPage      from './pages/SandboxPage';
-import ProfilePage      from './pages/ProfilePage';
-
-function Protected({
-  children,
-  adminOnly = false,
-}: {
-  children: ReactElement;
-  adminOnly?: boolean;
-}) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
-  if (loading) return null;
-  if (!isAuthenticated)        return <Navigate to="/login" replace />;
-  if (adminOnly && !isAdmin)   return <Navigate to="/main"  replace />;
-  return <>{children}</>;
+// заглушка главной витрины — дальше подменим на реальную
+function Home() {
+  return <div className="page"><h2>Домашняя страница</h2><p>Калькулятор / Библиотека</p></div>;
 }
 
-function AppShell() {
-  const { isAuthenticated } = useAuth();
+function GuardedApp() {
+  const { access, loading, needsPin, checkRefreshPresence } = useContext(AuthContext);
 
-  return (
-    <div className="flex flex-col h-screen">
-      <Header />
-      <div className="flex-1 overflow-y-auto" style={{ paddingTop: 56, paddingBottom: 56 }}>
-        <Routes>
-          {/* редирект на логин */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+  useEffect(() => { void checkRefreshPresence(); }, [checkRefreshPresence]);
 
-          {/* новый логин-флоу */}
-          <Route path="/login"      element={<LoginPhone />} />
-          <Route path="/login/pin"  element={<LoginPin   />} />
-          <Route path="/register"   element={<Register   />} />
+  if (loading) return <div className="page">Загрузка…</div>;
+  if (needsPin && !access) return <Navigate to="/login/pin" replace />;
+  if (!needsPin && !access) return <Navigate to="/login" replace />;
 
-          {/* гостю недоступно */}
-          <Route path="/main"     element={<Protected><MainPage /></Protected>} />
-          <Route path="/main/:id" element={<Protected><MainCalcPage /></Protected>} />
-
-          {/* manager-only */}
-          <Route path="/ingredients"      element={<Protected adminOnly><IngredientsPage /></Protected>} />
-          <Route path="/preparations"     element={<Protected adminOnly><PreparationsPage /></Protected>} />
-          <Route path="/preparations/new" element={<Protected adminOnly><PreparationForm /></Protected>} />
-          <Route path="/preparations/:id" element={<Protected adminOnly><PreparationForm /></Protected>} />
-          <Route path="/team"             element={<Protected adminOnly><TeamPage /></Protected>} />
-          <Route path="/team/new"         element={<Protected adminOnly><TeamFormPage /></Protected>} />
-          <Route path="/team/:id"         element={<Protected adminOnly><TeamFormPage /></Protected>} />
-          <Route path="/adminmenu"        element={<Protected adminOnly><AdminMenu /></Protected>} />
-
-          {/* прочее */}
-          <Route path="/invite/:token" element={<InviteComplete />} />
-          <Route path="/ttk"      element={<Protected><TtkPage /></Protected>} />
-          <Route path="/learn"    element={<Protected><LearnPage /></Protected>} />
-          <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
-          <Route path="/sandbox"  element={<Protected><SandboxPage /></Protected>} />
-          <Route path="/profile"  element={<Protected><ProfilePage /></Protected>} />
-
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </div>
-      {isAuthenticated && <Footer />}
-    </div>
-  );
+  return <Home />;
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppShell />
-      </BrowserRouter>
-    </AuthProvider>
+    <Routes>
+      <Route path="/" element={<GuardedApp />} />
+      <Route path="/login" element={<LoginPassword />} />
+      <Route path="/login/pin" element={<LoginPin />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

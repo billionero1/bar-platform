@@ -1,101 +1,99 @@
 // src/AuthContext.tsx
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './lib/api';
 
-type User = {
+type UserPayload = {
   sub: number;
   phone: string;
-  name?: string;
-  role: 'manager' | 'staff';
-  establishment_id: number;
-  establishment_name: string;
+  name: string | null;
+  role: 'manager' | 'staff' | null;
+  establishment_id: number | null;
+  establishment_name: string | null;
 };
 
 type AuthCtx = {
-  user: User | null;
+  user: UserPayload | null;
   access: string | null;
   loading: boolean;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-  requestPin: (phone: string) => Promise<void>;
-  loginPin: (phone: string, code: string) => Promise<void>;
+  needsPin: boolean;
+  lastPhone: string | null;
+
+  checkRefreshPresence: () => Promise<void>;
+  loginPassword: (p: { phone: string; password: string; pin?: string }) => Promise<void>;
+  unlockWithPin: (pin: string) => Promise<void>;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
-const Ctx = createContext<AuthCtx>(null as any);
-export const useAuth = () => useContext(Ctx);
+export const AuthContext = createContext<AuthCtx>({} as any);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [access, setAccess] = useState<string | null>(null);
+  const [user, setUser] = useState<UserPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsPin, setNeedsPin] = useState(false);
+  const [lastPhone, setLastPhone] = useState<string | null>(null);
 
-  // попытка поднять сессию по refresh-куке
-  const refresh = useCallback(async () => {
-    const resp = await api('/v1/auth/refresh', { method: 'POST', credentials: 'include' });
-    // ожидаем { access, user }
-    setAccess(resp.access);
-    setUser(resp.user);
+  const reset = () => {
+    setAccess(null);
+    setUser(null);
+    setNeedsPin(false);
+  };
+
+  const checkRefreshPresence = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api<{ has: boolean; phone: string | null }>('/v1/auth/has-refresh', { method: 'GET' });
+      setNeedsPin(Boolean(r.has));
+      setLastPhone(r.phone || null);
+    } catch {
+      setNeedsPin(false);
+      setLastPhone(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        await refresh();
-      } catch {
-        // нет валидной сессии — ок
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [refresh]);
-
-  const requestPin = async (phone: string) => {
-    await api('/v1/auth/request-pin', {
+  const loginPassword = useCallback(async ({ phone, password, pin }: { phone: string; password: string; pin?: string; }) => {
+    const r = await api<{ access: string; user: UserPayload }>('/v1/auth/login-password', {
       method: 'POST',
-      body: JSON.stringify({ phone }),
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      body: JSON.stringify({ phone, password, pin }),
     });
-  };
+    setAccess(r.access);
+    setUser(r.user);
+    setNeedsPin(false);
+    setLastPhone(r.user?.phone || null);
+  }, []);
 
-  const loginPin = async (phone: string, code: string) => {
-    const resp = await api('/v1/auth/login-pin', {
+  const unlockWithPin = useCallback(async (pin: string) => {
+    const r = await api<{ access: string; user: UserPayload }>('/v1/auth/unlock', {
       method: 'POST',
-      body: JSON.stringify({ phone, code }),
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // получим httpOnly refresh
+      body: JSON.stringify({ pin }),
     });
-    setAccess(resp.access);
-    setUser(resp.user);
-  };
+    setAccess(r.access);
+    setUser(r.user);
+    setNeedsPin(false);
+    setLastPhone(r.user?.phone || null);
+  }, []);
 
-  const logout = async () => {
-    try {
-      await api('/v1/auth/logout', { method: 'POST', credentials: 'include' });
-    } finally {
-      setAccess(null);
-      setUser(null);
-    }
-  };
+  const refresh = useCallback(async () => {
+    const r = await api<{ access: string; user: UserPayload }>('/v1/auth/refresh', { method: 'POST' });
+    setAccess(r.access);
+    setUser(r.user);
+    setLastPhone(r.user?.phone || null);
+  }, []);
 
-  // удобные флаги
-  const isAuthenticated = !!user && !!access;
-  const isAdmin = !!user && user.role === 'manager';
+  const logout = useCallback(async () => {
+    try { await api('/v1/auth/logout', { method: 'POST' }); } catch {}
+    reset();
+  }, []);
 
-  // мемуизация контекста
+  useEffect(() => { checkRefreshPresence(); }, [checkRefreshPresence]);
+
   const value = useMemo<AuthCtx>(() => ({
-    user,
-    access,
-    loading,
-    isAuthenticated,
-    isAdmin,
-    requestPin,
-    loginPin,
-    refresh,
-    logout,
-  }), [user, access, loading, isAuthenticated, isAdmin, requestPin, loginPin, refresh, logout]);
+    user, access, loading, needsPin, lastPhone,
+    checkRefreshPresence, loginPassword, unlockWithPin, refresh, logout,
+  }), [user, access, loading, needsPin, lastPhone, checkRefreshPresence, loginPassword, unlockWithPin, refresh, logout]);
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};

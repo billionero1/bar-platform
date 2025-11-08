@@ -1,178 +1,191 @@
-import { useState } from 'react';
+// src/pages/Register.tsx
+import React, { useMemo, useRef, useState } from 'react';
+import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
-import { useAuth }   from '../AuthContext';
-import Toast from '../components/Toast';
+import PinPad from '../components/PinPad';
+import { rusify } from '../lib/errors';
 
-/* ─────────── хелперы для телефона ─────────── */
-function formatPhone(v: string) {
-  const d = v.replace(/\D/g, '').replace(/^8/, '7');
-  let r = '+7 ';
-  if (d.length > 1) r += d.slice(1, 4);
-  if (d.length >= 4) r += ' ' + d.slice(4, 7);
-  if (d.length >= 7) r += ' ' + d.slice(7, 9);
-  if (d.length >= 9) r += ' ' + d.slice(9, 11);
-  return r.trim();
+type Step = 'phone' | 'code' | 'password' | 'pin';
+
+function onlyDigits(s: string) { return s.replace(/\D/g, ''); }
+function normalizePhoneToApi(masked: string) {
+  let d = onlyDigits(masked);
+  if (!d) return '';
+  if (d.startsWith('8')) d = '7' + d.slice(1);
+  if (!d.startsWith('7')) d = '7' + d;
+  d = d.slice(0, 11);
+  return '+' + d;
 }
-function normalizePhone(v: string) {
-  const d = v.replace(/\D/g, '');
-  return d.startsWith('8') ? '7' + d.slice(1) : d;
+function formatRuPhone(masked: string) {
+  const d = onlyDigits(masked).slice(0, 11);
+  let s = d;
+  if (s.startsWith('8')) s = '7' + s.slice(1);
+  if (!s.startsWith('7')) s = '7' + s;
+  const arr = s.padEnd(11, '_').split('');
+  return `+7 (${arr[1]}${arr[2]}${arr[3]}) ${arr[4]}${arr[5]}${arr[6]} ${arr[7]}${arr[8]} ${arr[9]}${arr[10]}`.replace(/_/g, '');
 }
 
-/* ─────────── компонент ─────────── */
 export default function Register() {
-  const [establishmentName, setEstablishmentName] = useState('');
-  const [name, setName]         = useState('');
-  const [surname, setSurname]   = useState('');
-  const [phone, setPhone]       = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm]   = useState('');
-  const [showPass,    setShowPass]    = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const nav = useNavigate();
+  const [step, setStep] = useState<Step>('phone');
 
-  const nav  = useNavigate();
-  const { login } = useAuth();
+  const [phone, setPhone] = useState('+7 ');
+  const [code, setCode] = useState('');
+  const [pass1, setPass1] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [show1, setShow1] = useState(false);
+  const [show2, setShow2] = useState(false);
+  const [pin, setPin] = useState('');
 
-  /* ─── события ───────────────────────────── */
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setPhone(formatPhone(e.target.value));
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const passwordsMatch = password === confirm && password.length >= 6;
+  // чтобы "Назад→Вперёд" не ловило 429 (throttle 60s)
+  const lastVerifyAtRef = useRef<number | null>(null);
 
-  async function handleRegister() {
-    if (!passwordsMatch) return;
+  const apiPhone = useMemo(() => normalizePhoneToApi(phone), [phone]);
 
-    if (
-      !establishmentName.trim() ||
-      !name.trim() ||
-      !normalizePhone(phone)
-    ) {
-      alert('Пожалуйста, заполните все поля');
-      return;
-    }
+  const onPhoneChange = (v: string) => {
+    const digits = onlyDigits(v);
+    const limited = digits.slice(0, 11);
+    const formatted = formatRuPhone(limited);
+    setPhone(formatted);
+  };
 
+  const back = () => {
+    setErr(null);
+    if (step === 'code') setStep('phone');
+    else if (step === 'password') setStep('code');
+    else if (step === 'pin') setStep('password');
+  };
+
+  const nextPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null); setBusy(true);
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/register-manager`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            establishmentName,
-            name,
-            surname,
-            phone: normalizePhone(phone),
-            password,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setToastType('error');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 2000);
+      const now = Date.now();
+      // если в последние 55 сек уже запрашивали код — не дублируем запрос,
+      // просто идём на шаг "код", чтобы не получить 429.
+      if (lastVerifyAtRef.current && (now - lastVerifyAtRef.current) < 55_000) {
+        setStep('code');
         return;
       }
+      await api('/v1/auth/request-verify', { method: 'POST', body: JSON.stringify({ phone: apiPhone }) });
+      lastVerifyAtRef.current = now;
+      setStep('code');
+    } catch (e: any) {
+      setErr(rusify(e) || '...');
+    } finally { setBusy(false); }
+  };
 
-      setToastType('success');
-      setShowToast(true);
-      setTimeout(() => {
-        login(data.token);
-        nav('/main');
-      }, 1500);
+  const nextCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null); setBusy(true);
+    try {
+      await api('/v1/auth/verify-code', { method: 'POST', body: JSON.stringify({ phone: apiPhone, code }) });
+      setStep('password');
+    } catch (e: any) {
+      setErr(rusify(e) || '...');
+    } finally { setBusy(false); }
+  };
 
-    } catch (err) {
-      console.error('Ошибка запроса:', err);
-      setToastType('error');
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 2000);
+  const nextPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pass2.length >= pass1.length && pass1 !== pass2) {
+      return setErr('Пароли не совпадают');
     }
-  }
+    setErr(null);
+    setStep('pin');
+  };
 
-  /* ─── UI ─────────────────────────────────── */
+  const finish = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null); setBusy(true);
+    try {
+      await api('/v1/auth/register-user', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: apiPhone,
+          password: pass1,
+          pin: pin ? pin : undefined,
+        }),
+      });
+      nav('/login');
+    } catch (e: any) {
+      setErr(rusify(e) || '...');
+    } finally { setBusy(false); }
+  };
+
   return (
-    <div className='flex min-h-screen items-center justify-center'>
-      <div className='w-full max-w-md rounded bg-white p-6 shadow'>
-        <h1 className='mb-4 text-center text-2xl font-bold'>
-          Регистрация менеджера
-        </h1>
-
-        <input
-          className='mb-2 w-full border p-2'
-          placeholder='Название заведения'
-          value={establishmentName}
-          onChange={(e) => setEstablishmentName(e.target.value)}
-        />
-
-        <input
-          className='mb-2 w-full border p-2'
-          placeholder='Имя'
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-
-        <input
-          className='mb-2 w-full border p-2'
-          placeholder='Фамилия'
-          value={surname}
-          onChange={(e) => setSurname(e.target.value)}
-        />
-
-        <input
-          className='mb-2 w-full border p-2'
-          placeholder='Телефон'
-          value={phone}
-          onChange={handlePhoneChange}
-        />
-
-        <div className='relative mb-2'>
-          <input
-            type={showPass ? 'text' : 'password'}
-            className='w-full border p-2 pr-16'
-            placeholder='Пароль (мин. 6 симв.)'
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button
-            type='button'
-            className='absolute right-2 top-2 text-sm text-blue-600'
-            onClick={() => setShowPass(!showPass)}
-          >
-            {showPass ? 'Скрыть' : 'Показать'}
-          </button>
-        </div>
-
-        <div className='relative mb-4'>
-          <input
-            type={showConfirm ? 'text' : 'password'}
-            className='w-full border p-2 pr-16'
-            placeholder='Повторите пароль'
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-          <button
-            type='button'
-            className='absolute right-2 top-2 text-sm text-blue-600'
-            onClick={() => setShowConfirm(!showConfirm)}
-          >
-            {showConfirm ? 'Скрыть' : 'Показать'}
-          </button>
-        </div>
-
-        <button
-          disabled={!passwordsMatch}
-          onClick={handleRegister}
-          className={`w-full rounded py-2 text-white ${
-            passwordsMatch ? 'bg-blue-600' : 'bg-gray-400 cursor-not-allowed'
-          }`}
-        >
-          Зарегистрироваться
-        </button>
+    <div className="auth">
+      <div className="topbar">
+        {step !== 'phone' && <button className="back" onClick={back} aria-label="Назад" />}
+        <h1>Регистрация</h1>
       </div>
-      <Toast show={showToast} type={toastType} />
+
+      {step === 'phone' && (
+        <form onSubmit={nextPhone}>
+          <label>Телефон</label>
+          <input
+            value={phone}
+            onChange={e=>onPhoneChange(e.target.value)}
+            inputMode="tel"
+            placeholder="+7 (___) ___ __ __"
+          />
+          <div className="hint">Мы отправим код для проверки номера</div>
+          {err && <div className="error">{err}</div>}
+          <button disabled={busy}>Продолжить</button>
+        </form>
+      )}
+
+      {step === 'code' && (
+        <form onSubmit={nextCode}>
+          <label>Код из сообщения</label>
+          <input value={code} onChange={e=>setCode(e.target.value)} inputMode="numeric" maxLength={4} />
+          {err && <div className="error">{err}</div>}
+          <button disabled={busy || code.length !== 4}>Подтвердить</button>
+        </form>
+      )}
+
+      {step === 'password' && (
+        <form onSubmit={nextPassword}>
+          <label>Пароль</label>
+          <div className="password-field">
+            <input
+              type={show1 ? 'text' : 'password'}
+              value={pass1}
+              onChange={e=>setPass1(e.target.value)}
+            />
+            <button type="button" className="eye" onClick={()=>setShow1(s=>!s)} aria-label="Показать пароль"/>
+          </div>
+
+          <label>Повторите пароль</label>
+          <div className="password-field">
+            <input
+              type={show2 ? 'text' : 'password'}
+              value={pass2}
+              onChange={e=>setPass2(e.target.value)}
+            />
+            <button type="button" className="eye" onClick={()=>setShow2(s=>!s)} aria-label="Показать пароль"/>
+          </div>
+
+          {(pass2.length >= pass1.length && pass1 !== pass2) && (
+            <div className="error">Пароли не совпадают</div>
+          )}
+
+          {err && <div className="error">{err}</div>}
+          <button disabled={busy || !pass1}>Далее</button>
+        </form>
+      )}
+
+      {step === 'pin' && (
+        <form onSubmit={finish} className="pin-step">
+          <div className="hint">PIN (опционально) — для быстрого входа</div>
+          <PinPad value={pin} onChange={setPin} />
+          {err && <div className="error">{err}</div>}
+          <button disabled={busy}>Завершить</button>
+        </form>
+      )}
     </div>
   );
 }

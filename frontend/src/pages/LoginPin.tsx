@@ -1,40 +1,51 @@
 // src/pages/LoginPin.tsx
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../AuthContext';
+import React, { useContext, useMemo, useState } from 'react';
+import { AuthContext } from '../AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
+import PinPad from '../components/PinPad';
+import { rusify } from '../lib/errors';
+
+function formatForView(phone: string | null) {
+  if (!phone) return '';
+  const d = phone.replace(/\D/g, '');
+  const arr = d.padEnd(11, '_').split('');
+  return `+7 (${arr[1]}${arr[2]}${arr[3]}) ${arr[4]}${arr[5]}${arr[6]} ${arr[7]}${arr[8]} ${arr[9]}${arr[10]}`.replace(/_/g, '');
+}
 
 export default function LoginPin() {
+  const { unlockWithPin, lastPhone } = useContext(AuthContext);
   const nav = useNavigate();
-  const { loginPin, isAuthenticated } = useAuth();
-  const [code, setCode] = useState('');
-  const phone = localStorage.getItem('login_phone') || '';
 
-  useEffect(() => {
-    if (isAuthenticated) nav('/main', { replace: true });
-  }, [isAuthenticated, nav]);
+  const [pin, setPin] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const viewPhone = useMemo(() => formatForView(lastPhone), [lastPhone]);
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length !== 4) return;
-    await loginPin(phone, code);
-    nav('/main', { replace: true });
+    setErr(null); setBusy(true);
+    try {
+      await unlockWithPin(pin);
+      nav('/');
+    } catch (e: any) {
+      setErr(rusify(e) || 'Неверный PIN');
+    } finally { setBusy(false); }
   };
 
   return (
-    <div className="mx-auto max-w-sm p-4">
-      <h1 className="text-xl font-semibold mb-4">Введите PIN</h1>
-      <form onSubmit={onSubmit} className="space-y-3">
-        <input
-          className="w-full border rounded p-2 tracking-widest text-center text-2xl"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          inputMode="numeric"
-          autoFocus
-        />
-        <button className="w-full rounded bg-black text-white py-2">Войти</button>
+    <div className="auth">
+      <h1>Быстрый вход</h1>
+      {viewPhone && <div className="muted phone-view">{viewPhone}</div>}
+
+      <form onSubmit={submit} className="pin-step">
+        <PinPad value={pin} onChange={setPin} />
+        {err && <div className="error">{err}</div>}
+        <button disabled={busy || pin.length !== 4}>Разблокировать</button>
       </form>
-      <div className="mt-4 text-sm text-gray-600">
-        На номер: <b>+{phone}</b>
+
+      <div className="muted" style={{ marginTop: 12 }}>
+        <Link to="/login">Войти телефоном и паролем</Link>
       </div>
     </div>
   );

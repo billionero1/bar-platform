@@ -22,9 +22,14 @@ app.use((req, res, next) => {
   return res.redirect('https://' + req.headers.host + req.originalUrl);
 });
 
-/* базовые мидлвары */
-app.use(cors({ origin: true, credentials: true })); // для refresh-куки
-app.use(express.json());
+  /* базовые мидлвары */
+  const ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
+  app.use(cors({
+    origin: ORIGIN,
+    credentials: true, // чтобы refresh-куки работали корректно
+  }));
+  app.use(express.json());
+
 
 /* v1 API */
 app.use('/v1/auth',         v1Auth);
