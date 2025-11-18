@@ -1,36 +1,41 @@
-import React, { useContext, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthContext } from './AuthContext';
+// src/App.tsx
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+
+import { RequireAuth, OnlyGuests } from './guards';
 
 import LoginPassword from './pages/LoginPassword';
-import LoginPin from './pages/LoginPin';
 import Register from './pages/Register';
+import Recover from './pages/Recover';
 
-// заглушка главной витрины — дальше подменим на реальную
-function Home() {
-  return <div className="page"><h2>Домашняя страница</h2><p>Калькулятор / Библиотека</p></div>;
-}
+import Workspace from './pages/Workspace';
+import LoginPinOverlay from './pages/LoginPin';
 
-function GuardedApp() {
-  const { access, loading, needsPin, checkRefreshPresence } = useContext(AuthContext);
-
-  useEffect(() => { void checkRefreshPresence(); }, [checkRefreshPresence]);
-
-  if (loading) return <div className="page">Загрузка…</div>;
-  if (needsPin && !access) return <Navigate to="/login/pin" replace />;
-  if (!needsPin && !access) return <Navigate to="/login" replace />;
-
-  return <Home />;
-}
-
-export default function App() {
+const App: React.FC = () => {
   return (
-    <Routes>
-      <Route path="/" element={<GuardedApp />} />
-      <Route path="/login" element={<LoginPassword />} />
-      <Route path="/login/pin" element={<LoginPin />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      {/* Глобальный PIN-оверлей — всегда рядом с роутером */}
+      <LoginPinOverlay />
+
+      <Routes>
+        {/* Гостевые страницы */}
+        <Route element={<OnlyGuests />}>
+          <Route path="/login" element={<LoginPassword />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/recover" element={<Recover />} />
+        </Route>
+
+        {/* Приватные страницы */}
+        <Route element={<RequireAuth />}>
+          <Route path="/" element={<Workspace />} />
+          {/* здесь добавишь остальные приватные маршруты */}
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<LoginPassword />} />
+      </Routes>
+    </>
   );
-}
+};
+
+export default App;

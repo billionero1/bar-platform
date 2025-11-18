@@ -1,38 +1,69 @@
-/* базовая раскладка без вертикального скролла */
-html, body, #root {
-  height: 100%;
-}
-body {
+/* ==========================================================================
+   БАЗА: фон и раскладка под PWA
+   ========================================================================== */
+
+html,
+body,
+#root {
   margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* фон по всей высоте */
+html {
+  background: radial-gradient(circle at 10% 0%, rgba(15, 23, 42, 0.95), #020617);
+  background-color: #020617;
+}
+
+body {
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #0f1115;
+
+  background: radial-gradient(circle at 10% 0%, rgba(15, 23, 42, 0.95), #020617);
+  background-color: #020617;
+
   color: #e7eaf3;
-  overflow: hidden; /* без прокрутки */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
-/* контейнер auth по центру экрана */
+/* ==========================================================================
+   AUTH-КАРТОЧКА (логин / регистрация / восстановление)
+   ========================================================================== */
+
 .auth {
-  width: 100%;
-  max-width: 360px; /* немного уже */
-  margin: 0 auto;
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   box-sizing: border-box;
+
+  width: min(360px, 100% - 32px);
+  padding: 24px 24px 32px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 0 0, rgba(96, 165, 250, 0.12), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.16), transparent 55%),
+    rgba(15, 23, 42, 0.96);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(148, 163, 184, 0.18);
+
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.auth h1 {
+/* Заголовки */
+
+.auth h1,
+.pin-overlay__title {
   margin: 0 0 16px;
   font-size: 20px;
   font-weight: 600;
+  color: #e5e7eb;
   text-align: center;
 }
 
@@ -47,68 +78,124 @@ body {
   opacity: 0.9;
 }
 
-/* поля ввода */
+/* Поля ввода */
+
 .auth input {
   width: 100%;
   height: 44px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.9);
   color: #e7eaf3;
   outline: none;
   font-size: 15px;
   box-sizing: border-box;
 }
+
 .auth input::placeholder {
   color: #8a90a6;
 }
 
-/* кнопки */
-.auth button {
-  height: 44px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.08);
-  color: #e7eaf3;
+/* Основные кнопки (градиентные таблетки) */
+
+.auth button:not(.pinpad__key):not(.pinpad__aux):not(.back):not(.eye):not(.link-text),
+.pin-overlay__submit {
+  height: 48px;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 213, 219, 0.45);
+  background:
+    radial-gradient(circle at 20% 0, rgba(248, 250, 252, 0.16), transparent 55%),
+    linear-gradient(135deg, rgba(59, 130, 246, 0.7), rgba(139, 92, 246, 0.8));
+  color: #f9fafb;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 10px 25px rgba(15, 23, 42, 0.7),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
+  transition:
+    transform 0.05s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease,
+    opacity 0.15s ease;
+  box-sizing: border-box;
+  width: 100%;
 }
-.auth button:hover {
-  background: rgba(255,255,255,0.12);
-  border-color: rgba(255,255,255,0.25);
+
+.auth button:not(.pinpad__key):not(.pinpad__aux):not(.back):not(.eye):not(.link-text):hover,
+.pin-overlay__submit:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.8),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
 }
-.auth button:disabled {
-  opacity: 0.5;
+
+.auth button:not(.pinpad__key):not(.pinpad__aux):not(.back):not(.eye):not(.link-text):active,
+.pin-overlay__submit:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+  box-shadow:
+    0 6px 18px rgba(15, 23, 42, 0.7),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
+}
+
+.auth button:not(.pinpad__key):not(.pinpad__aux):not(.back):not(.eye):not(.link-text):disabled,
+.pin-overlay__submit:disabled {
+  opacity: 0.55;
   cursor: default;
+  filter: grayscale(0.1);
 }
 
-.hint  { font-size: 12px; color: #a6accd; text-align: center; }
-.muted { font-size: 12px; color: #8a90a6; text-align: center; }
-.error { font-size: 12px; color: #ff7b7b; text-align: center; }
+/* Текстовые элементы */
 
-/* верхняя панель с кнопкой назад */
+.hint {
+  font-size: 12px;
+  color: #a6accd;
+  text-align: center;
+}
+
+.muted {
+  font-size: 12px;
+  color: #8a90a6;
+  text-align: center;
+}
+
+.error {
+  font-size: 12px;
+  color: #ff7b7b;
+  text-align: center;
+}
+
+/* Верхняя панель с кнопкой назад */
+
 .topbar {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
 }
+
 .topbar h1 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
 }
+
+/* Кнопка "назад" */
+
 button.back {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.9);
   cursor: pointer;
   position: relative;
 }
+
 button.back::before {
   content: '';
   position: absolute;
@@ -121,13 +208,16 @@ button.back::before {
   transform: rotate(45deg);
 }
 
-/* глаз в поле пароля */
+/* Глаз в поле пароля */
+
 .password-field {
   position: relative;
 }
+
 .password-field input {
   padding-right: 44px;
 }
+
 .password-field .eye {
   position: absolute;
   top: 0;
@@ -138,6 +228,7 @@ button.back::before {
   background: transparent;
   cursor: pointer;
 }
+
 .password-field .eye::before {
   content: '';
   position: absolute;
@@ -149,6 +240,7 @@ button.back::before {
   left: 50%;
   transform: translate(-50%, -50%);
 }
+
 .password-field .eye::after {
   content: '';
   position: absolute;
@@ -161,67 +253,608 @@ button.back::before {
   transform: translate(-50%, -50%);
 }
 
-/* PIN-пад */
-.pin-step {
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-}
+/* Номер телефона над пин-падом (шаг PIN в регистрации) */
 
-.pin-circles {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-.pin-circles .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.2);
-}
-.pin-circles .dot.filled {
-  background: #e7eaf3;
-}
-
-.pin-pad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  width: 100%;
-  max-width: 280px;
-  margin: 0 auto;
-}
-.pin-pad button {
-  height: 50px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.06);
-  color: #e7eaf3;
-  border: 1px solid rgba(255,255,255,0.12);
-  font-size: 16px;
-  cursor: pointer;
-}
-.pin-pad button:hover {
-  background: rgba(255,255,255,0.1);
-}
-.pin-pad .muted-btn {
-  color: #a6accd;
-}
-
-/* номер телефона над пинпадом */
 .auth .phone-view {
   text-align: center;
   margin-bottom: 8px;
   color: #cbd0e3;
 }
 
-/* адаптация для небольших экранов */
-@media (max-height: 640px) {
-  .auth { transform: translate(-50%, -48%); }
+/* Шаг PIN в регистрации */
+
+.pin-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
 }
+
+/* Нейтральные текстовые ссылки */
+
+.linklike {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #a6accd;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none !important;
+}
+
+.linklike:hover {
+  color: #cbd0e3;
+}
+
+.link-text {
+  color: #a6accd;
+  text-decoration: none !important;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+}
+
+.link-text:hover {
+  color: #cbd0e3;
+  text-decoration: none;
+}
+
+.muted a {
+  color: #a6accd;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.muted a:hover {
+  color: #cbd0e3;
+}
+
+/* ==========================================================================
+   PIN OVERLAY — ОБЩИЕ (ДЕСКТОП/ТАБЛЕТ)
+   ========================================================================== */
+
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.pin-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 10% 0%, rgba(15, 23, 42, 0.95), #020617);
+  backdrop-filter: blur(14px);
+  z-index: 0;
+}
+
+/* Карточка оверлея (как auth) */
+
+.pin-overlay__content {
+  position: relative;
+  z-index: 1;
+
+  width: min(360px, 100% - 32px);
+  padding: 24px 24px 32px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 0 0, rgba(96, 165, 250, 0.12), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.16), transparent 55%),
+    rgba(15, 23, 42, 0.96);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(148, 163, 184, 0.18);
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Блок юзера вверху */
+
+.pin-overlay__head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  margin-left: 5px; /* базовая "вертикаль" слева – 10px */
+}
+
+.pin-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pin-user--stacked {
+  /* на будущее: совпадает с базовым поведением */
+}
+
+.pin-user__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 30% 0,
+    rgba(148, 163, 184, 0.4),
+    rgba(15, 23, 42, 0.95)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+  color: #f9fafb;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.8);
+}
+
+/* "Добрый вечер" */
+
+.pin-user__greeting {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #e5e7eb;
+  margin-top: 8px;
+}
+
+/* Имя пользователя */
+
+.pin-user__name {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #e5e7eb;
+}
+
+/* Телефон */
+
+.pin-user__phone {
+  font-size: 14px;
+  color: #cbd5f5;
+  margin-top: 2px;
+}
+
+/* Промпт: "Введите PIN-код" / ошибка + точки */
+
+.pin-overlay__prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;   /* ближе к телефону */
+  margin-left: 5px;  /* та же вертикаль слева – 10px */
+}
+
+/* Текст "Введите PIN-код" или ошибка */
+
+.pin-overlay__subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: #e5e7eb;
+  text-align: left;
+}
+
+.pin-overlay__error {
+  font-size: 15px;
+  color: #ffffff; /* белый */
+  text-align: left;
+  min-height: 18px;
+}
+
+/* счётчик оставшихся попыток */
+
+.pin-attempts {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #ffffff;
+  opacity: 0.9;
+}
+
+/* Точки PIN (большие квадратики) */
+
+.pin-input {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+/* ячейка — прямоугольник */
+.pin-input__dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow:
+    0 6px 12px rgba(15, 23, 42, 0.75),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+/* внутренняя точка по центру (по умолчанию скрыта) */
+.pin-input__dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+/* белая точка при обычном вводе */
+.pin-input__dot--filled::before {
+  opacity: 1;
+  background-color: #ffffff;
+}
+
+/* красная точка при ошибке */
+.pin-input__dot--error::before {
+  opacity: 1;
+  background-color: #f97373;
+}
+
+/* лёгкая тряска при ошибке */
+.pin-input--shake {
+  animation: pin-shake 0.35s ease;
+}
+
+@keyframes pin-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-4px); }
+  40%  { transform: translateX(4px); }
+  60%  { transform: translateX(-3px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+/* Нижний блок — только пин-пад */
+
+.pin-overlay__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin-top: 56px; /* большое пространство, как в Сбере */
+}
+
+/* Обёртка для пин-пада, чтобы выровнять по той же вертикали слева */
+
+.pinpad-wrapper-left {
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
+/* ==========================================================================
+   PIN PAD — ОБЩИЙ (оверлей + регистрация)
+   ========================================================================== */
+
+.pinpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+
+  width: 100%;
+  max-width: 520px;
+}
+
+/* Точки PIN по умолчанию (для других экранов, не overlay) */
+
+.pinpad__dots {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.pinpad__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.8);
+}
+
+.pinpad__dot--filled {
+  background: #e5e7eb;
+  border-color: transparent;
+}
+
+/* В PIN-оверлее точки pinpad скрываем, там свои (pin-input) */
+
+.pin-overlay .pinpad__dots {
+  display: none;
+}
+
+/* Сетка цифр: 3 столбца */
+
+.pinpad__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 90%;
+  max-width: 520px;
+}
+
+/* Кнопки цифр */
+
+.pinpad__key {
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: radial-gradient(circle at 30% 0, rgba(148, 163, 184, 0.18), rgba(15, 23, 42, 0.96));
+  color: #e5e7eb;
+  font-size: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.05s ease;
+}
+
+.pinpad__key:hover:not(:disabled) {
+  background: radial-gradient(circle at 30% 0, rgba(148, 163, 184, 0.28), rgba(15, 23, 42, 0.98));
+  border-color: rgba(209, 213, 219, 0.5);
+}
+
+.pinpad__key:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.pinpad__key:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Вспомогательные кнопки (Выйти / ⌫) */
+
+.pinpad__grid .pinpad__aux {
+  height: 56px;
+  border: none;
+  background: transparent;
+  color: #e5e7eb;
+  font-size: 15px;   /* чуть крупнее */
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pinpad__grid .pinpad__aux--logout {
+  font-size: 14px;   /* тоже чуть крупнее */
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* backspace-иконка — отдельно */
+.pinpad__backspace {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.pinpad__grid .pinpad__aux:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Пустая ячейка */
+
+.pinpad__aux-placeholder {
+  height: 56px;
+}
+
+/* Специально для PIN-оверлея:
+   пин-пад упирается в левую вертикаль, как текст */
+
+.pin-overlay .pinpad {
+  align-items: flex-start;
+  width: 100%;
+}
+
+.pin-overlay .pinpad__grid {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* Контент в режиме блокировки */
+
+.pin-overlay__content--locked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-lock {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pin-lock__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.pin-lock__timer {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #e5e7eb;
+}
+
+.pin-lock__subtitle {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ==========================================================================
+   MEDIA: АДАПТАЦИЯ AUTH-КАРТОЧКИ
+   ========================================================================== */
+
+@media (max-height: 640px) {
+  .auth {
+    transform: translate(-50%, -48%);
+  }
+}
+
 @media (max-width: 420px) {
   .auth {
-    max-width: 320px;
-    padding: 20px;
+    width: calc(100% - 24px);
+    padding: 20px 18px 26px;
+    border-radius: 20px;
+  }
+}
+
+/* ==========================================================================
+   MOBILE: PIN-оверлей и PIN-пад (экраны до 480px ширины)
+   ========================================================================== */
+
+@media (max-width: 480px) {
+  .pin-overlay {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .pin-overlay__content {
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+
+    padding: calc(env(safe-area-inset-top, 0px) + 24px) 20px
+             calc(env(safe-area-inset-bottom, 0px) + 10px);
+
+    border-radius: 0;
+    background:
+      radial-gradient(circle at 0 0, rgba(96, 165, 250, 0.12), transparent 55%),
+      radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.16), transparent 55%),
+      rgba(15, 23, 42, 0.96);
+    box-shadow: none;
+
+    min-height: 100vh;
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* одна вертикаль слева для всех верхних блоков */
+  .pin-overlay__head,
+  .pin-overlay__prompt,
+  .pinpad-wrapper-left {
+    margin-left: 0;
+  }
+
+  /* верх: аватар + приветствие + имя + телефон */
+  .pin-overlay__head {
+    margin-top: 0;
+    margin-bottom: 24px;
+    text-align: left;
+  }
+
+  .pin-user {
+    align-items: flex-start;
+  }
+
+  .pin-user__avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+
+  .pin-user__greeting,
+  .pin-user__name {
+    font-size: 29px;
+    line-height: 1.2;
+  }
+
+  .pin-user__phone {
+    font-size: 15px;
+    margin-top: 3px;
+  }
+
+  /* "Введите PIN-код" + квадратики — сразу под телефоном */
+  .pin-overlay__prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 40px; /* воздух до пин-пада */
+  }
+
+  .pin-overlay__subtitle,
+  .pin-overlay__error {
+    margin: 0;
+    font-size: 15px;
+    text-align: left;
+  }
+
+  .pin-input {
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .pin-input__dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+  }
+
+  /* низ: пин-пад сидит на нижней части экрана */
+  .pin-overlay__foot {
+    margin-top: auto;
+    padding-top: 0;
+    align-items: stretch;
+  }
+
+  .pinpad-wrapper-left {
+    margin: 0;
+    width: 100%;
+  }
+
+  .pinpad {
+    width: 100%;
+    max-width: none;
+    align-items: stretch;   /* растягиваем по ширине контейнера */
+    gap: 22px;
+  }
+
+  /* переопределяем десктопный .pin-overlay .pinpad__grid */
+  .pinpad__grid,
+  .pin-overlay .pinpad__grid {
+    width: 100%;
+    max-width: none;
+    gap: 18px;
+  }
+
+  .pinpad__key {
+    height: 72px;
+    font-size: 24px;
+  }
+
+  .pinpad__grid .pinpad__aux,
+  .pinpad__aux-placeholder {
+    height: 72px;
   }
 }

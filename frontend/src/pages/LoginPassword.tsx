@@ -1,66 +1,71 @@
 // src/pages/LoginPassword.tsx
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useContext, useState, useMemo } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { AuthContext } from '../AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
 import { rusify } from '../lib/errors';
-
-
-function onlyDigits(s: string) { return s.replace(/\D/g, ''); }
-function normalizePhoneToApi(masked: string) {
-  let d = onlyDigits(masked);
-  if (!d) return '';
-  if (d.startsWith('8')) d = '7' + d.slice(1);
-  if (!d.startsWith('7')) d = '7' + d;
-  d = d.slice(0, 11);
-  return '+' + d;
-}
-function formatRuPhone(masked: string) {
-  const d = onlyDigits(masked).slice(0, 11);
-  let s = d;
-  if (s.startsWith('8')) s = '7' + s.slice(1);
-  if (!s.startsWith('7')) s = '7' + s;
-  const arr = s.padEnd(11, '_').split('');
-  return `+7 (${arr[1]}${arr[2]}${arr[3]}) ${arr[4]}${arr[5]}${arr[6]} ${arr[7]}${arr[8]} ${arr[9]}${arr[10]}`.replace(/_/g, '');
-}
+import { formatPhone, toDbDigits, toApiWithPlus, handlePhoneBackspace } from '../lib/phone';
 
 export default function LoginPassword() {
-  const { loginPassword } = useContext(AuthContext);
   const nav = useNavigate();
+  const location = useLocation();
+  const { loginPassword, lastPhone } = useContext(AuthContext);
 
-  const [phone, setPhone] = useState('+7 ');
+  const [phone, setPhone] = useState(() => {
+    // 1) если пришли с регистрации: nav('/login', { state: { phone: '79...' } })
+    const state = location.state as { phone?: string } | null;
+    if (state?.phone) {
+      // приводим '79...' к виду "+7 ..." для инпута
+      return toApiWithPlus(state.phone);
+    }
+
+    // 2) иначе, если уже логинились раньше — используем сохранённый
+    if (lastPhone) {
+      return toApiWithPlus(lastPhone);
+    }
+
+    // 3) по умолчанию пустой номер
+    return '+7 ';
+  });
+
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const apiPhone = useMemo(() => normalizePhoneToApi(phone), [phone]);
-
-  const onPhoneChange = (v: string) => {
-    const digits = onlyDigits(v);
-    const limited = digits.slice(0, 11);
-    const formatted = formatRuPhone(limited);
-    setPhone(formatted);
-  };
+  const apiPhone = useMemo(() => toDbDigits(phone), [phone]);
+  const onPhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) =>
+    handlePhoneBackspace(e, setPhone, () => phone);
+  const onPhoneChange = (v: string) => setPhone(formatPhone(v));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null); setBusy(true);
+    setErr(null);
+    setBusy(true);
     try {
-      await loginPassword({ phone: apiPhone, password });
+      await loginPassword({
+        phone: apiPhone, // сервер нормализует, но шлём цифры
+        password,
+      });
       nav('/');
     } catch (e: any) {
-      setErr(rusify(e) || 'Ошибка входа');
-    } finally { setBusy(false); }
+      setErr(rusify(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="auth">
-      <h1>Вход</h1>
+      <div className="topbar">
+        <h1>Вход</h1>
+      </div>
+
       <form onSubmit={submit}>
         <label>Телефон</label>
         <input
           value={phone}
-          onChange={e => onPhoneChange(e.target.value)}
+          onChange={(e) => onPhoneChange(e.target.value)}
+          onKeyDown={onPhoneKeyDown}
           inputMode="tel"
           placeholder="+7 (___) ___ __ __"
         />
@@ -70,19 +75,27 @@ export default function LoginPassword() {
           <input
             type={show ? 'text' : 'password'}
             value={password}
-            onChange={e=>setPassword(e.target.value)}
-            placeholder="Ваш пароль"
+            onChange={(e) => setPassword(e.target.value)}
           />
-          <button type="button" className="eye" onClick={()=>setShow(s=>!s)} aria-label="Показать пароль"/>
+          <button
+            type="button"
+            className="eye"
+            onClick={() => setShow((s) => !s)}
+            aria-label="Показать пароль"
+          />
         </div>
 
         {err && <div className="error">{err}</div>}
-        <button disabled={busy}>Продолжить</button>
-      </form>
+        <button disabled={busy || !apiPhone || !password}>Войти</button>
 
-      <div className="muted" style={{ marginTop: 12 }}>
-        <Link to="/register">Зарегистрироваться</Link>
-      </div>
+        <div className="muted" style={{ marginTop: 8 }}>
+          <Link className="link-text" to="/recover">Забыли пароль?</Link>
+        </div>
+
+        <div className="muted" style={{ marginTop: 8 }}>
+        <Link className="link-text" to="/register">Зарегистрироваться</Link>
+        </div>
+      </form>
     </div>
   );
 }

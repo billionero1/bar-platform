@@ -38,31 +38,33 @@ BEGIN
   END IF;
 END$$;
 
--- SESSIONS
-CREATE TABLE IF NOT EXISTS sessions (
-  id               SERIAL PRIMARY KEY,
-  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  establishment_id INTEGER NULL REFERENCES establishments(id) ON DELETE SET NULL,
-  refresh_hash     TEXT UNIQUE NOT NULL,
+-- --- sessions: фиксированные 30 дней, без продления по активности ---
+DROP TABLE IF EXISTS sessions CASCADE;
+
+CREATE TABLE sessions (
+  id               BIGSERIAL PRIMARY KEY,
+  user_id          BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sid_hash         TEXT   NOT NULL UNIQUE,
   ua               TEXT,
   ip               TEXT,
-  created_at       TIMESTAMPTZ DEFAULT now()
+
+  -- когда пользователь последний раз был активен (для PIN / idle)
+  last_activity_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  -- флаг: требуется ли ввести PIN для этой сессии, прежде чем пускать дальше
+  need_pin         BOOLEAN NOT NULL DEFAULT false,
+
+  -- фиксированная «жизнь» сессии (например, 30 дней)
+  expires_at       TIMESTAMPTZ NOT NULL,
+
+  revoked_at       TIMESTAMPTZ
 );
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name='sessions' AND column_name='expires_at'
-  ) THEN
-    ALTER TABLE sessions ADD COLUMN expires_at TIMESTAMPTZ;
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name='sessions' AND column_name='revoked_at'
-  ) THEN
-    ALTER TABLE sessions ADD COLUMN revoked_at TIMESTAMPTZ;
-  END IF;
-END$$;
+
+
+CREATE INDEX sessions_user_idx   ON sessions(user_id);
+CREATE INDEX sessions_valid_idx  ON sessions(expires_at) WHERE revoked_at IS NULL;
+
+
 
 -- PASSCODES (SMS/verify/PIN)
 CREATE TABLE IF NOT EXISTS passcodes (

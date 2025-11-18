@@ -1,52 +1,94 @@
 // src/lib/api.ts
-export const API = import.meta.env.VITE_API_URL || "";
-
-const RU_ERRORS: Record<string, string> = {
-  phone_already_registered: "Этот телефон уже зарегистрирован",
-  phone_and_password_required: "Укажите телефон и пароль",
-  phone_establishment_password_required: "Телефон, пароль и название заведения — обязательны",
-  phone_required: "Укажите номер телефона",
-  code_expired_or_not_found: "Код не найден или срок действия истёк",
-  invalid_code: "Неверный код",
-  invalid_credentials: "Неверный телефон или пароль",
-  no_membership: "Нет доступа к заведению",
-  no_refresh: "Сессия не найдена (требуется вход)",
-  invalid_refresh: "Сессия недействительна (повторите вход)",
-  bad_token: "Недействительный токен",
-  pin_required: "Укажите PIN (4 цифры)",
-  too_many_requests: "Слишком часто. Попробуйте позже",
-  internal_error: "Внутренняя ошибка. Попробуйте ещё раз",
-  http_error: "Ошибка сети. Попробуйте ещё раз",
+export type ApiError = Error & {
+  status?: number;
+  code?: string;
+  details?: unknown;
 };
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(API + path, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+// ==== Глобальные хендлеры авторизации (ставятся из AuthContext) ====
+type AuthHandlers = {
+  onPinRequired?: () => void;
+  onSessionExpired?: () => void;
+};
+
+let authHandlers: AuthHandlers = {};
+
+export function setAuthHandlers(handlers: AuthHandlers) {
+  authHandlers = handlers;
+}
+
+// ==== Базовый хелпер для запросов ====
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+export async function api<T>(
+  path: string,
+  init: RequestInit = {}
+): Promise<T> {
+  const url = path.startsWith('http') ? path : API_BASE + path;
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(init.headers || {}),
+  };
+
+  const res = await fetch(url, {
     ...init,
+    headers,
+    credentials: 'include',
   });
 
-  if (!res.ok) {
-    // 401 — глобально считаем, что нужна авторизация
-    if (res.status === 401) {
-      try {
-        const err = await res.json();
-        const msg = RU_ERRORS[err?.error] || RU_ERRORS.http_error;
-        throw { ...err, message: msg, status: 401 };
-      } catch {
-        throw { error: "http_error", message: RU_ERRORS.http_error, status: 401 };
-      }
-    }
 
-    // Остальные статусы — пытаемся вернуть локализованную ошибку
+  // Успех
+  if (res.ok) {
+    // 204 No Content
+    if (res.status === 204) return undefined as unknown as T;
+
+    const text = await res.text();
+    if (!text) return undefined as unknown as T;
     try {
-      const err = await res.json();
-      const msg = RU_ERRORS[err?.error] || RU_ERRORS.http_error;
-      throw { ...err, message: msg, status: res.status };
+      return JSON.parse(text) as T;
     } catch {
-      throw { error: "http_error", message: RU_ERRORS.http_error, status: res.status };
+      // если пришёл не-JSON
+      return text as unknown as T;
     }
   }
 
-  return res.json();
+  // Ошибка
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    // тело не JSON
+  }
+
+  const err = new Error(
+    data?.message ||
+    data?.error ||
+    res.statusText ||
+    'Request failed'
+  ) as ApiError;
+
+  err.status = res.status;
+  if (data?.code && typeof data.code === 'string') {
+    err.code = data.code;
+  }
+  if (data?.details) {
+    err.details = data.details;
+  }
+
+  // Глобальная реакция на авторизационные 401
+  if (res.status === 401) {
+    if (err.code === 'PIN_REQUIRED') {
+      authHandlers.onPinRequired?.();
+    } else if (
+      err.code === 'SESSION_EXPIRED' ||
+      err.code === 'SESSION_NOT_FOUND' ||
+      !err.code // на всякий случай
+    ) {
+      authHandlers.onSessionExpired?.();
+    }
+  }
+
+  throw err;
 }

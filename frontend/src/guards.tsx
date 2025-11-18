@@ -1,17 +1,36 @@
 // src/guards.tsx
-import React from 'react';
+import React, { useContext } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { AuthContext } from './AuthContext';
 
-export function RequireAuth() {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  return user ? <Outlet/> : <Navigate to="/login" replace />;
-}
+/**
+ * Доступ только для авторизованных (есть серверная сессия).
+ * PIN блокировка обрабатывается оверлеем, а не роутером.
+ */
+export const RequireAuth: React.FC = () => {
+  const { loading, hasSession } = useContext(AuthContext);
 
-export function RequireRole({ role }: { role: 'manager'|'staff' }) {
-  const { user, loading } = useAuth();
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  return user.role === role ? <Outlet/> : <Navigate to="/" replace />;
-}
+
+  if (!hasSession) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+};
+
+/**
+ * Гостевые страницы (логин/регистрация/восстановление).
+ * Если есть сессия — уводим внутрь.
+ */
+export const OnlyGuests: React.FC = () => {
+  const { loading, hasSession } = useContext(AuthContext);
+
+  if (loading) return null;
+
+  if (hasSession) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+};
