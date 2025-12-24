@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import Toast from '../components/Toast';
-import Footer from '../components/Footer';
+import Footer from '../../src2/features/workspace/Footer';
 
 /* ─── утилиты для телефона ────────────────────────────── */
 /* ─── утилиты для телефона ────────────────────────────── */

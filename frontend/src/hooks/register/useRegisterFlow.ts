@@ -18,7 +18,6 @@ import {
 } from '../../lib/phone';
 import { useResendTimer } from '../ResendTimer';
 
-// Импортируем тип UserPayload из AuthContext
 import type { UserPayload } from '../../AuthContext';
 
 type Step = 'phone' | 'code' | 'password';

@@ -1,7 +1,7 @@
 // src/pages/workspace/Workspace.mobile.tsx
 import React, { useContext, useMemo, useState } from 'react';
-import Header from '../../components/Header';
-import Footer from '../../components/Footer';
+import Header from '../../../src2/features/workspace/Header';
+import Footer from '../../../src2/features/workspace/Footer';
 import { AuthContext } from '../../AuthContext';
 
 // Табки футера — подгоняем под текущий Footer.tsx

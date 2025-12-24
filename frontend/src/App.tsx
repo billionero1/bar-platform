@@ -1,34 +1,54 @@
-// src/App.tsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { RequireAuth, OnlyGuests } from './guards';
-import { ThemeProvider } from './theme/ThemeProvider';
-import LayoutProvider from './components/layout/LayoutProvider';
 
-// Features
-import LoginPage from './features/auth/pages/LoginPage';
-import RegisterPage from './features/auth/pages/RegisterPage';
-import RecoverPage from './features/auth/pages/RecoverPage';
-import WorkspacePage from './features/workspace/pages/WorkspacePage';
+import { RequireAuth, OnlyGuests } from './guards';
+import { ThemeProvider } from './ThemeContext';
+
+// DESKTOP
+import AuthShellDesktop from './pages/auth/AuthShell.desktop';
+import LoginDesktop from './pages/login/Login.desktop';
+import RegisterDesktop from './pages/register/Register.desktop';
+import RecoverDesktop from './pages/recover/RecoverPassword.desktop';
+import WorkspaceDesktop from './pages/workspace/Workspace.desktop';
+
+// MOBILE
+import AuthShellMobile from './pages/auth/AuthShell.mobile';
+import LoginMobile from './pages/login/Login.mobile';
+import RegisterMobile from './pages/register/Register.mobile';
+import RecoverMobile from './pages/recover/RecoverPassword.mobile';
+import WorkspaceMobile from './pages/workspace/Workspace.mobile';
+
+const isMobile =
+  typeof window !== 'undefined' &&
+  (
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent,
+    ) ||
+    window.innerWidth <= 768
+  );
+
+const AuthShell = isMobile ? AuthShellMobile : AuthShellDesktop;
+const Login = isMobile ? LoginMobile : LoginDesktop;
+const Register = isMobile ? RegisterMobile : RegisterDesktop;
+const Recover = isMobile ? RecoverMobile : RecoverDesktop;
+const Workspace = isMobile ? WorkspaceMobile : WorkspaceDesktop;
 
 const App: React.FC = () => {
   return (
     <ThemeProvider>
       <Routes>
-        {/* Гостевые страницы */}
+        {/* Гостевые страницы под одним shell'ом */}
         <Route element={<OnlyGuests />}>
-          <Route element={<LayoutProvider />}>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/recover" element={<RecoverPage />} />
+          <Route element={<AuthShell />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/recover" element={<Recover />} />
           </Route>
         </Route>
 
         {/* Приватные страницы */}
         <Route element={<RequireAuth />}>
-          <Route element={<LayoutProvider />}>
-            <Route path="/" element={<WorkspacePage />} />
-          </Route>
+          <Route path="/" element={<Workspace />} />
         </Route>
       </Routes>
     </ThemeProvider>

@@ -23,5 +23,5 @@
 
     "types": ["vite/client", "react", "react-dom"]
   },
-  "include": ["src"]
+  "include": ["src", "src2/features/workspace/Footer.tsx", "src2/features/workspace/Header.tsx", "src2/features/auth/components/PhoneInput.tsx", "src2/features/auth/hooks/ResendTimer.ts", "src2/features/auth/hooks/useLogin.ts", "src2/features/auth/hooks/useRecovery.ts", "src2/features/auth/hooks/useRegister.ts", "src2/layouts/MobileLayout/MobileLayout.tsx"]
 }
