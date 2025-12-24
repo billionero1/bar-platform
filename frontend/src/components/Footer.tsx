@@ -1,6 +1,6 @@
 // src/components/Footer.tsx
 import React, { useContext } from 'react';
-import { AuthContext } from '../../../src3/AuthContext';
+import { AuthContext } from '../../src/AuthContext';
 
 type MobileTab = 'home' | 'feed' | 'profile';
 

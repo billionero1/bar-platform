@@ -1,7 +1,8 @@
 // src/pages/Workspace.tsx
 import React from 'react';
-import Header from '../../../src2/features/workspace/Header';
-import Footer from '../../../src2/features/workspace/Footer';
+import Header from '../../components/Header';
+
+import Footer from '../../components/Footer';
 
 export default function Workspace() {
   return (
