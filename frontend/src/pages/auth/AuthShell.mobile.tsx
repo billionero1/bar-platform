@@ -1,0 +1,17 @@
+// src/pages/auth/AuthShell.mobile.tsx
+import React from 'react';
+import { Outlet } from 'react-router-dom';
+
+const AuthShellMobile: React.FC = () => {
+  return (
+    <div className="auth-mobile-shell">
+      <main className="auth-mobile-main">
+        <div className="auth-mobile-card">
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default AuthShellMobile;

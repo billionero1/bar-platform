@@ -37,3 +37,18 @@ export function handlePhoneBackspace(e: React.KeyboardEvent<HTMLInputElement>, s
   const nextDigits = currentDigits.slice(0, -1);
   setValue(formatPhone(nextDigits));
 }
+
+/**
+ * Обработчик вставки номера телефона из буфера обмена
+ */
+export function handlePhonePaste(
+  e: React.ClipboardEvent<HTMLInputElement>, 
+  setValue: (v: string) => void
+) {
+  const pasted = e.clipboardData.getData('text');
+  const digits = pasted.replace(/\D/g, '');
+  if (digits) {
+    e.preventDefault();
+    setValue(formatPhone(digits));
+  }
+}

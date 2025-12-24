@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS users (
   surname         TEXT,
   is_admin        BOOLEAN DEFAULT FALSE,
   password_hash   TEXT,
-  pin_hash        TEXT,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 
@@ -27,6 +26,7 @@ CREATE TABLE IF NOT EXISTS memberships (
   role             TEXT NOT NULL CHECK (role IN ('manager','staff')),
   created_at       TIMESTAMPTZ DEFAULT now()
 );
+
 -- страховка на колонку отзыва доступа
 DO $$
 BEGIN
@@ -38,7 +38,7 @@ BEGIN
   END IF;
 END$$;
 
--- --- sessions: фиксированные 30 дней, без продления по активности ---
+-- SESSIONS
 DROP TABLE IF EXISTS sessions CASCADE;
 
 CREATE TABLE sessions (
@@ -47,36 +47,21 @@ CREATE TABLE sessions (
   sid_hash         TEXT   NOT NULL UNIQUE,
   ua               TEXT,
   ip               TEXT,
-
-  -- когда пользователь последний раз был активен (для PIN / idle)
   last_activity_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-
-  -- флаг: требуется ли ввести PIN для этой сессии, прежде чем пускать дальше
-  need_pin         BOOLEAN NOT NULL DEFAULT false,
-
-  -- фиксированная «жизнь» сессии (например, 30 дней)
   expires_at       TIMESTAMPTZ NOT NULL,
-
   revoked_at       TIMESTAMPTZ
 );
 
-
-CREATE INDEX sessions_user_idx   ON sessions(user_id);
-CREATE INDEX sessions_valid_idx  ON sessions(expires_at) WHERE revoked_at IS NULL;
-
-
-
--- PASSCODES (SMS/verify/PIN)
+-- PASSCODES (SMS/verify/сброс пароля)
 CREATE TABLE IF NOT EXISTS passcodes (
   id           SERIAL PRIMARY KEY,
   phone        TEXT NOT NULL,
   code         TEXT NOT NULL,
-  purpose      TEXT NOT NULL, -- 'verify'|'login' и т.п.
+  purpose      TEXT NOT NULL, -- 'verify'|'reset' (SMS-коды для верификации и сброса пароля)
   attempts_left INTEGER NOT NULL DEFAULT 3,
   expires_at   TIMESTAMPTZ NOT NULL,
   created_at   TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_passcodes_phone ON passcodes(phone);
 
 -- INGREDIENTS
 CREATE TABLE IF NOT EXISTS ingredients (
@@ -107,6 +92,23 @@ CREATE TABLE IF NOT EXISTS preparation_items (
   amount           NUMERIC NOT NULL,
   unit             TEXT
 );
+
+-- Базовые индексы (без CONCURRENTLY - они в транзакции)
+CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS sessions_valid_idx ON sessions(expires_at) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_passcodes_phone ON passcodes(phone);
 CREATE INDEX IF NOT EXISTS idx_prep_items_prep ON preparation_items(preparation_id);
+
+-- AUTH EVENTS (аудит авторизации)
+CREATE TABLE IF NOT EXISTS auth_events (
+  id          BIGSERIAL PRIMARY KEY,
+  event_type  TEXT NOT NULL,        -- login_success, login_fail, register_success и т.п.
+  user_id     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  phone       TEXT,
+  ip          TEXT,
+  user_agent  TEXT,
+  success     BOOLEAN,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
 
 COMMIT;

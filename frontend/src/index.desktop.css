@@ -1,0 +1,940 @@
+/* ==========================================================================
+   БАЗА (ДЕСКТОП): фон и общий layout приложения
+   ========================================================================== */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  height: 100%;
+}
+
+html {
+  background: radial-gradient(circle at top, #111827 0, #020617 55%, #020617 100%);
+}
+
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  background: radial-gradient(circle at top, #111827 0, #020617 55%, #020617 100%);
+  color: #e5e7eb;
+
+  /* Было overflow: hidden; — даём скролл по вертикали, чтобы ничего не резалось */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  position: relative;
+}
+
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.16), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(129, 140, 248, 0.18), transparent 55%);
+  mix-blend-mode: normal;
+  opacity: 0.5;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   ОБЩИЙ SHELL (header / main / footer) + workspace — ДЕСКТОП
+   ========================================================================== */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__header {
+  flex: 0 0 auto;
+}
+
+.app-shell__main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__footer {
+  flex: 0 0 auto;
+}
+
+/* Заготовка хедера */
+
+.app-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+}
+
+.app-header__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Воркспейс */
+
+.workspace-main {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.workspace-placeholder {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+/* Футер */
+
+.app-footer {
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(14px);
+}
+
+.app-footer__content {
+  min-height: 56px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-footer__placeholder {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ==========================================================================
+   AUTH: общий контейнер (десктопный split layout)
+   ========================================================================== */
+
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.auth-screen--split {
+  padding: 0;
+}
+
+.auth-page-inner--recover .login-form {
+  margin-top: 18px;
+}
+
+.auth-page-inner--recover .login-form {
+  margin-top: 18px;
+}
+
+/* ==========================================================================
+   LOGIN SPLIT LAYOUT — обычный логин (НЕ PIN)
+   ========================================================================== */
+
+.login-layout {
+  flex: 1 1 auto;
+  display: flex;
+  width: 100%;
+}
+
+/* Левая часть (бренд-блок) */
+
+.login-left {
+  flex: 1 1 60%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 48px 0;
+}
+
+.login-left-inner {
+  width: 100%;
+  max-width: 640px;
+  padding: 0 64px 0 72px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border-right: 1px solid rgba(31, 41, 55, 1);
+}
+
+.login-brand-kicker {
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.login-brand-title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.login-brand-tagline {
+  margin: 0;
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cbd5f5;
+}
+
+/* "Заготовки | Техкарты | ..." — без таблеток, через | */
+
+.login-brand-meta {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #9ca3af;
+}
+
+.login-brand-meta span {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.login-brand-meta span::after {
+  content: '|';
+  opacity: 0.5;
+  margin: 0 6px;
+}
+
+.login-brand-meta span:last-child::after {
+  content: '';
+  margin: 0;
+}
+
+/* Правая часть — обычная форма логина */
+
+.login-right {
+  flex: 1 1 40%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 48px 0;
+}
+
+.login-right-inner {
+  width: 100%;
+  max-width: 420px;
+  padding: 0 72px 0 56px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-mobile-brand {
+  display: none;
+}
+
+/* Форма логина/регистрации */
+
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 20px;
+}
+
+.login-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.login-header-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.login-header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login-header--with-back .login-header-sub {
+  margin-left: 0;
+}
+
+.login-header-back {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.96);
+  cursor: pointer;
+  position: relative;
+  margin-right: 10px;
+}
+
+.login-header-back::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-left: 2px solid #e5e7eb;
+  border-bottom: 2px solid #e5e7eb;
+  transform: rotate(45deg);
+}
+
+.login-form {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.login-form label {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+.login-form input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e5e7eb;
+  outline: none;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.login-form input::placeholder {
+  color: #6b7280;
+}
+
+/* Плавное появление блока с кодом */
+.recover-inline-code {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-4px);
+  transition:
+    max-height 0.25s ease,
+    opacity 0.2s ease,
+    transform 0.25s ease;
+}
+
+.recover-inline-code--visible {
+  max-height: 220px; /* хватит на label + input + кнопки */
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 12px;
+}
+
+
+.login-submit {
+  margin-top: 8px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.9);
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #f9fafb;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.9),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease,
+    opacity 0.16s ease;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.login-submit:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow:
+    0 14px 36px rgba(15, 23, 42, 0.95),
+    0 0 0 1px rgba(15, 23, 42, 1);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.9),
+    0 0 0 1px rgba(15, 23, 42, 1);
+}
+
+.login-submit:disabled {
+  opacity: 0.55;
+  cursor: default;
+  filter: grayscale(0.1);
+}
+
+/* Видимый фокус для клавиатурной навигации */
+.login-submit:focus-visible,
+.link-text:focus-visible,
+.linklike:focus-visible,
+.login-header-back:focus-visible,
+.password-field .eye:focus-visible,
+.pinpad__key:focus-visible,
+.pinpad__grid .pinpad__aux:focus-visible {
+  outline: 2px solid rgba(129, 140, 248, 0.95);
+  outline-offset: 3px;
+}
+
+.login-right-inner .error {
+  margin-top: 4px;
+}
+
+
+.login-links-row {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.login-links-divider {
+  flex: 0 0 1px;
+  height: 14px;
+  background: rgba(55, 65, 81, 1);
+}
+
+.hint {
+  font-size: 12px;
+  color: #a6accd;
+  text-align: left;
+}
+
+.muted {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: left;
+}
+
+.muted a {
+  color: #9ca3af;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.muted a:hover {
+  color: #e5e7eb;
+}
+
+.muted-center {
+  text-align: center;
+  width: 100%;
+}
+
+.error {
+  font-size: 12px;
+  color: #f97373;
+  text-align: left;
+}
+
+.linklike {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none !important;
+}
+
+.linklike:hover {
+  color: #e5e7eb;
+}
+
+.link-text {
+  color: #9ca3af;
+  text-decoration: none !important;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+}
+
+.link-text:hover {
+  color: #e5e7eb;
+}
+
+/* Поле пароля с глазом */
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 44px;
+}
+
+.password-field .eye {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 42px;
+  height: 42px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.password-field .eye::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 10px;
+  border: 2px solid #9ca3af;
+  border-radius: 50% / 60%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.password-field .eye::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #9ca3af;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ==========================================================================
+   PIN OVERLAY - НОВЫЙ СТИЛЬ (совместимый с auth-страницами)
+   ========================================================================== */
+
+.pin-desktop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: auto;
+
+  background: radial-gradient(circle at top, #111827 0, #020617 55%, #020617 100%);
+}
+
+
+/* ==========================================================================
+   PIN STARS - стили для поля ввода PIN с плавной анимацией
+   ========================================================================== */
+
+.pin-stars {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 12px;
+  color: #e5e7eb;
+  text-align: center;
+  margin-bottom: 2px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  width: 100%;
+  position: relative;
+}
+
+.pin-stars--error {
+  color: #f97373;
+}
+
+.pin-stars--shake {
+  animation: pin-shake 0.35s ease;
+}
+
+/* Плейсхолдер для PIN */
+.pin-stars__placeholder {
+  font-size: 18px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: normal;
+  transition: all 0.3s ease;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /* УБИРАЕМ system-ui - оставляем моноширинный как было */
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Когда есть введенные символы - скрываем плейсхолдер */
+.pin-stars--has-input .pin-stars__placeholder {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.8);
+  pointer-events: none;
+}
+
+/* Содержимое звездочек */
+.pin-stars__content {
+  transition: all 0.3s ease;
+}
+
+/* Анимация тряски при ошибке */
+@keyframes pin-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-4px); }
+  40%  { transform: translateX(4px); }
+  60%  { transform: translateX(-3px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+/* ==========================================================================
+   PIN LAYOUT - компактные стили для правой части
+   ========================================================================== */
+
+/* Компактный блок пользователя */
+.user-compact {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.user-avatar-compact {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f9fafb;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.user-greeting-large {
+  font-size: 24px;
+  font-weight: 600;
+  color: #f9fafb;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.user-name-large {
+  font-size: 24px;
+  font-weight: 600;
+  color: #f9fafb;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.user-phone-compact {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.pin-input-compact {
+  margin-bottom: 2px;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.pin-message-container {
+  text-align: center;
+  margin-top: 6px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-message-container .error {
+  font-size: 13px; /* Делаем 13px как у счетчика */
+  color: #f97373;
+  margin: 0;
+}
+
+.pin-attempts-compact {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Компактный пинпад */
+.pinpad-compact-container {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.pinpad-compact {
+  width: 100%;
+  max-width: 280px;
+}
+
+/* Компактная ссылка восстановления */
+.recover-link-compact {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.recover-link-compact .link-text {
+  font-size: 12px; 
+  color: #9ca3af;
+}
+/* Стиль для описания под пользователем */
+.login-header-sub--after-user {
+  margin: 0 0 2px 0;
+  text-align: center;
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+/* ==========================================================================
+   Улучшенный пинпад для нового дизайна
+   ========================================================================== */
+
+.pinpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.pinpad__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+
+.pinpad__key {
+  height: 56px;
+  border-radius: 12px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e5e7eb;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pinpad__key:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.96);
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.pinpad__key:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.pinpad__key:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pinpad__grid .pinpad__aux {
+  height: 56px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e5e7eb;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.pinpad__grid .pinpad__aux--logout {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.pinpad__grid .pinpad__aux:hover:not(:disabled) {
+  background: rgba(30, 41, 59, 0.96);
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.pinpad__grid .pinpad__aux:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pinpad__backspace {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.pinpad__aux-placeholder {
+  height: 56px;
+  visibility: hidden;
+}
+
+/* ==========================================================================
+   PIN TIME DISPLAY - стили для часов и даты
+   ========================================================================== */
+
+.pin-time-display {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+}
+
+.pin-time-display__clock {
+  font-size: 96px;
+  font-weight: 300;
+  color: #f9fafb;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+}
+
+.pin-time-display__day {
+  font-size: 24px;
+  color: #9ca3af;
+  line-height: 1.4;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.pin-time-display__date {
+  font-size: 18px;
+  color: #6b7280;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ==========================================================================
+   PIN LOCK - стили для экрана блокировки в правой части
+   ========================================================================== */
+
+.pin-lock-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.pin-lock-header {
+  margin-bottom: 32px;
+}
+
+.pin-lock-header h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #f9fafb;
+  margin: 0 0 8px 0;
+}
+
+.pin-lock-subtitle {
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.pin-lock-timer {
+  font-size: 48px;
+  font-weight: 700;
+  color: #f9fafb;
+  letter-spacing: 0.1em;
+  margin: 40px 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; /* Тот же шрифт что и у часов */
+  font-weight: 300; /* Тонкий шрифт как у часов */
+}
+
+.pin-lock-message {
+  font-size: 14px;
+  color: #9ca3af;
+  line-height: 1.5;
+  margin-bottom: 40px;
+}
+
+.pin-lock-message p {
+  margin: 0 0 8px 0;
+}
+
+.pin-lock-message p:last-child {
+  margin-bottom: 0;
+}
+
+.pin-lock-actions {
+  margin-top: 20px;
+}
+
+
+
+
+/* ==========================================================================
+   MEDIA: мелкие правки
+   ========================================================================== */
+
+@media (max-height: 640px) and (min-width: 769px) {
+  .login-left,
+  .login-right {
+    padding: 32px 0;
+  }
+}

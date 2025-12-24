@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import Toast from '../components/Toast';
-import Footer from '../components/Footer';
+import Footer from '../components/layout/Footer';
 
 
 

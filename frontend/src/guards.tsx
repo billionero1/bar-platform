@@ -5,13 +5,15 @@ import { AuthContext } from './AuthContext';
 
 /**
  * Доступ только для авторизованных (есть серверная сессия).
- * PIN блокировка обрабатывается оверлеем, а не роутером.
  */
 export const RequireAuth: React.FC = () => {
-  const { loading, hasSession } = useContext(AuthContext);
+  const { loading, hasSession, isCsrfReady } = useContext(AuthContext);
 
+  // Показываем null во время загрузки
   if (loading) return null;
 
+  // Если CSRF не готов, но сессия есть - все равно пускаем
+  // CSRF ошибки будут обработаны на уровне API
   if (!hasSession) {
     return <Navigate to="/login" replace />;
   }
@@ -21,7 +23,6 @@ export const RequireAuth: React.FC = () => {
 
 /**
  * Гостевые страницы (логин/регистрация/восстановление).
- * Если есть сессия — уводим внутрь.
  */
 export const OnlyGuests: React.FC = () => {
   const { loading, hasSession } = useContext(AuthContext);

@@ -1,63 +1,36 @@
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../AuthContext';
-import { X, SettingsIcon, LogOut } from 'lucide-react';
+import React from 'react';
+import { useTheme } from '../ThemeContext';
 
 export default function Header() {
-  const { establishmentName, logout } = useAuth();
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
-  const isFormPage =
-    ['/preparations/new', '/team/new'].some(p => pathname.startsWith(p)) ||
-    /^\/preparations\/\d+$/.test(pathname) ||
-    /^\/team\/\d+$/.test(pathname);
-
-  const isProfilePage = pathname === '/profile';
+  const isDark = theme === 'dark';
 
   return (
-    <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between bg-white px-4 shadow-sm">
-      <div className="flex items-center">
-        {isFormPage ? (
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2"
-            aria-label="Назад"
-          >
-            <X size={24} />
-          </button>
-        ) : (
-          <button
-            onClick={() => navigate('/main')}
-            className="font-semibold text-lg"
-            aria-label="Главная"
-          >
-            {establishmentName}
-          </button>
-        )}
+    <div className="app-header">
+      <div className="app-header__top">
+        <div className="app-header__title">ПРО.СЕРВИС</div>
+
+        <button
+          type="button"
+          className="app-header__theme-toggle"
+          onClick={toggleTheme}
+          aria-label={isDark ? 'Включить светлую тему' : 'Включить тёмную тему'}
+        >
+          {/* простые иконки-тогглы, позже можно заменить на свои */}
+          <span className="app-header__theme-icon">
+            {isDark ? '☾' : '☀️'}
+          </span>
+        </button>
       </div>
 
-      <div>
-        {isProfilePage ? (
-          <button
-            onClick={() => {
-              logout();
-              navigate('/', { replace: true });
-            }}
-            className="p-2"
-            aria-label="Выйти"
-          >
-            <LogOut size={24} />
-          </button>
-        ) : (
-          <button
-            onClick={() => navigate('/settings')}
-            className="p-2"
-            aria-label="Настройки"
-          >
-            <SettingsIcon size={24} />
-          </button>
-        )}
+      <div className="app-header__search">
+        <input
+          type="search"
+          className="app-header__search-input"
+          placeholder="Быстрый поиск по сервису…"
+        />
       </div>
-    </header>
+    </div>
   );
 }
