@@ -14,8 +14,8 @@ function secureCompare(a, b) {
   try {
     const aBuf = Buffer.from(String(a || ''), 'utf8');
     const bBuf = Buffer.from(String(b || ''), 'utf8');
-    return aBuf.length === bBuf.length && 
-           crypto.timingSafeEqual(aBuf, bBuf);
+    return aBuf.length === bBuf.length &&
+      crypto.timingSafeEqual(aBuf, bBuf);
   } catch {
     return false;
   }
@@ -41,13 +41,7 @@ function csrfMiddleware(req, res, next) {
   const headerToken = req.headers['x-csrf-token'];
 
   if (!cookieToken || !headerToken || cookieToken !== headerToken) {
-    console.error('[CSRF] Invalid CSRF token:', {
-      method: req.method,
-      url: req.originalUrl || req.url,
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
-    });
-
+    // CSRF invalid НЕ логируем в auth_events (чтобы не спамить)
     return res.status(403).json({
       error: 'invalid_csrf_token',
       code: 'CSRF_TOKEN_INVALID',
@@ -65,28 +59,21 @@ router.get('/csrf-token', (req, res) => {
 
   res.cookie(CSRF_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    secure: isProd,     // на https будет true за счёт NODE_ENV=production
+    sameSite: 'lax',    // одинаково и dev, и prod
     path: '/',
   });
 
   return res.json({ csrfToken: token });
 });
 
-// Обработчик ошибок CSRF
+// Обработчик ошибок CSRF (оставляем как было, но без console.error спама)
 router.use((err, req, res, next) => {
-  if (err.code === 'EBADCSRFTOKEN') {
-    console.error('[CSRF] Invalid CSRF token:', {
-      method: req.method,
-      url: req.url,
-      ip: req.ip,
-      userAgent: req.get('User-Agent')
-    });
-    
-    return res.status(403).json({ 
+  if (err?.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({
       error: 'invalid_csrf_token',
       code: 'CSRF_TOKEN_INVALID',
-      message: 'Invalid CSRF token'
+      message: 'Invalid CSRF token',
     });
   }
   next(err);
@@ -108,7 +95,7 @@ function cookieOpts() {
   return {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? 'strict' : 'lax',
+    sameSite: isProd ? 'lax' : 'lax',
     path: '/',
     maxAge: SESSION_MAX_AGE_MS,
   };
@@ -126,19 +113,10 @@ function normPhone(s) {
 
 function validatePassword(password) {
   const pwd = String(password || '');
-  
-  if (pwd.length < 8) {
-    return 'password_too_short';
-  }
-  if (!/[A-Z]/.test(pwd)) {
-    return 'password_no_uppercase';
-  }
-  if (!/[a-z]/.test(pwd)) {
-    return 'password_no_lowercase'; 
-  }
-  if (!/[0-9]/.test(pwd)) {
-    return 'password_no_digit';
-  }
+  if (pwd.length < 8) return 'password_too_short';
+  if (!/[A-Z]/.test(pwd)) return 'password_no_uppercase';
+  if (!/[a-z]/.test(pwd)) return 'password_no_lowercase';
+  if (!/[0-9]/.test(pwd)) return 'password_no_digit';
   return null;
 }
 
@@ -147,15 +125,10 @@ const RATE = new Map();
 
 setInterval(() => {
   const now = Date.now();
-  let cleaned = 0;
   for (const [key, bucket] of RATE.entries()) {
     if (bucket.expires < now) {
       RATE.delete(key);
-      cleaned++;
     }
-  }
-  if (cleaned > 0 && !process.env.NODE_ENV === 'test') {
-    console.log(`[RATE LIMIT] Cleaned ${cleaned} expired entries`);
   }
 }, 10 * 60 * 1000);
 
@@ -203,25 +176,58 @@ function signAccess(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: process.env.ACCESS_TTL || '15m' });
 }
 
-// === Аудит auth-событий ===
-async function logAuthEvent(
-  eventType,
-  {
-    userId = null,
-    phone = null,
-    ip = null,
-    ua = null,
-    success = null,
-  } = {}
-) {
+// ===================================================================
+// auth_events — только полезное и без спама
+// ===================================================================
+const AUTH_EVENTS_ALLOWLIST = new Set([
+  'login_success',
+  'login_invalid_credentials',
+
+  'register_success',
+  'register_phone_taken',
+
+  'verify_sms_requested',
+  'verify_sms_rate_limited',
+
+  'reset_sms_requested',
+  'reset_sms_rate_limited',
+  'reset_success',
+  'reset_invalid_code',
+
+  'logout',
+]);
+
+async function logAuthEvent(eventType, req, {
+  userId = null,
+  phone = null,
+  success = null,
+  details = null,
+} = {}) {
   try {
+    if (!AUTH_EVENTS_ALLOWLIST.has(eventType)) return;
+
+    const ip = req?.ip || null;
+    const ua = req?.headers?.['user-agent'] || null;
+    const method = req?.method || null;
+    const path = req?.originalUrl || req?.url || null;
+
     await db(
-      `INSERT INTO auth_events(event_type, user_id, phone, ip, user_agent, success)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [eventType, userId, phone, ip || null, ua || null, success]
+      `INSERT INTO auth_events(event_type, user_id, phone, ip, user_agent, method, path, success, details)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
+      [
+        eventType,
+        userId,
+        phone,
+        ip,
+        ua,
+        method,
+        path,
+        success,
+        JSON.stringify(details ?? {}),
+      ]
     );
-  } catch (e) {
-    console.warn('[auth_events] failed to write audit log', e?.message || e);
+  } catch {
+    // аудит НЕ должен ломать рабочие запросы
   }
 }
 
@@ -311,6 +317,8 @@ router.post('/request-verify', async (req, res) => {
     );
 
     if (exist.rowCount) {
+      // register_phone_taken — подходит и для verify, потому что смысл: номер уже занят
+      await logAuthEvent('register_phone_taken', req, { phone: p, success: false });
       return res.status(400).json({ error: 'phone_already_registered' });
     }
 
@@ -323,6 +331,11 @@ router.post('/request-verify', async (req, res) => {
       [p]
     );
     if (recent.rows.length) {
+      await logAuthEvent('verify_sms_rate_limited', req, {
+        phone: p,
+        success: false,
+        details: { window_sec: 60 },
+      });
       return res.status(429).json({ error: 'too_many_requests' });
     }
 
@@ -333,6 +346,12 @@ router.post('/request-verify', async (req, res) => {
        VALUES ($1,$2,'verify',3, now() + interval '15 minutes')`,
       [p, code]
     );
+
+    await logAuthEvent('verify_sms_requested', req, {
+      phone: p,
+      success: true,
+      details: { purpose: 'verify' },
+    });
 
     if (!isProd) console.log(`[VERIFY] ${p} -> ${code}`);
     return res.json({ ok: true });
@@ -390,7 +409,7 @@ router.post('/request-reset', async (req, res) => {
     }
 
     const user = await db(`SELECT id FROM users WHERE phone=$1 LIMIT 1`, [p]);
-    if (!user.rowCount) return res.status(404).json({ error: 'not_found' });
+    if (!user.rowCount) return res.status(404).json({ error: 'not_found' }); // не логируем (anti-enumeration)
 
     const recent = await db(
       `SELECT 1 FROM passcodes
@@ -399,7 +418,15 @@ router.post('/request-reset', async (req, res) => {
          LIMIT 1`,
       [p]
     );
-    if (recent.rowCount) return res.status(429).json({ error: 'too_many_requests' });
+    if (recent.rowCount) {
+      await logAuthEvent('reset_sms_rate_limited', req, {
+        userId: user.rows[0].id,
+        phone: p,
+        success: false,
+        details: { window_sec: 60 },
+      });
+      return res.status(429).json({ error: 'too_many_requests' });
+    }
 
     const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
     await db(
@@ -407,6 +434,13 @@ router.post('/request-reset', async (req, res) => {
        VALUES ($1,$2,'reset',3, now() + interval '15 minutes')`,
       [p, code]
     );
+
+    await logAuthEvent('reset_sms_requested', req, {
+      userId: user.rows[0].id,
+      phone: p,
+      success: true,
+      details: { purpose: 'reset' },
+    });
 
     if (!isProd) console.log(`[RESET] ${p} -> ${code}`);
     return res.json({ ok: true });
@@ -422,42 +456,21 @@ router.post('/reset-password', async (req, res) => {
     const code = (req.body || {}).code;
     const new_password = (req.body || {}).new_password;
 
-    const ip = req.ip || 'unknown';
-    const ua = req.headers['user-agent'] || null;
-
     if (!p || !code || !new_password) {
-      await logAuthEvent('password_reset_fail', {
-        phone: p,
-        ip,
-        ua,
-        success: false,
-      });
       return res.status(400).json({ error: 'phone_code_password_required' });
     }
 
     const passwordError = validatePassword(new_password);
     if (passwordError) {
-      await logAuthEvent('password_reset_fail', {
-        phone: p,
-        ip,
-        ua,
-        success: false,
-      });
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: passwordError,
         message: 'New password must be at least 8 characters with uppercase, lowercase and digit'
       });
     }
 
-    const uq = await db(`SELECT * FROM users WHERE phone=$1 LIMIT 1`, [p]);
+    const uq = await db(`SELECT id, phone, name FROM users WHERE phone=$1 LIMIT 1`, [p]);
     if (!uq.rowCount) {
-      await logAuthEvent('password_reset_fail', {
-        phone: p,
-        ip,
-        ua,
-        success: false,
-      });
-      return res.status(404).json({ error: 'not_found' });
+      return res.status(404).json({ error: 'not_found' }); // не логируем (anti-enumeration)
     }
     const user = uq.rows[0];
 
@@ -470,12 +483,11 @@ router.post('/reset-password', async (req, res) => {
       [p]
     );
     if (!q.rowCount) {
-      await logAuthEvent('password_reset_fail', {
+      await logAuthEvent('reset_invalid_code', req, {
         userId: user.id,
         phone: user.phone,
-        ip,
-        ua,
         success: false,
+        details: { reason: 'code_expired_or_not_found' },
       });
       return res.status(401).json({ error: 'code_expired_or_not_found' });
     }
@@ -483,17 +495,16 @@ router.post('/reset-password', async (req, res) => {
     const row = q.rows[0];
     if (!secureCompare(row.code, code)) {
       await db(
-        `UPDATE passcodes SET attempts_left = attempts_left - 1
+        `UPDATE passcodes SET attempts_left = GREATEST(attempts_left - 1, 0)
           WHERE id=$1 AND attempts_left > 0`,
         [row.id]
       );
 
-      await logAuthEvent('password_reset_fail', {
+      await logAuthEvent('reset_invalid_code', req, {
         userId: user.id,
         phone: user.phone,
-        ip,
-        ua,
         success: false,
+        details: { reason: 'invalid_code' },
       });
 
       return res.status(401).json({ error: 'invalid_code' });
@@ -516,19 +527,18 @@ router.post('/reset-password', async (req, res) => {
 
     const sidPlain = crypto.randomUUID() + ':' + crypto.randomBytes(12).toString('hex');
     const sidHash  = sha256(sidPlain);
+
     await db(
       `INSERT INTO sessions(user_id, sid_hash, ua, ip, expires_at, last_activity_at)
        VALUES ($1,$2,$3,$4, now() + $5::interval, now())`,
-      [user.id, sidHash, ua, ip, SESSION_PG_INTERVAL]
+      [user.id, sidHash, req.headers['user-agent'] || null, req.ip || null, SESSION_PG_INTERVAL]
     );
 
     res.cookie(COOKIE_NAME, sidPlain, cookieOpts());
 
-    await logAuthEvent('password_reset_success', {
+    await logAuthEvent('reset_success', req, {
       userId: user.id,
       phone: user.phone,
-      ip,
-      ua,
       success: true,
     });
 
@@ -546,52 +556,29 @@ router.post('/register-user', async (req, res) => {
     const password = String(req.body?.password || '');
     const name = String(req.body?.name || '').trim();
 
-    const ip = req.ip || 'unknown';
-    const ua = req.headers['user-agent'] || null;
-
     if (!phone || !password || !name) {
-      await logAuthEvent('register_fail', {
-        phone,
-        ip,
-        ua,
-        success: false,
-      });
+      // bad_input НЕ логируем
       return res.status(400).json({ error: 'bad_input' });
     }
 
     const passwordError = validatePassword(password);
     if (passwordError) {
-      await logAuthEvent('register_fail', {
-        phone,
-        ip,
-        ua,
-        success: false,
-      });
-      return res.status(400).json({ 
+      // bad_input НЕ логируем
+      return res.status(400).json({
         error: passwordError,
         message: 'Password must be at least 8 characters with uppercase, lowercase and digit'
       });
     }
 
-    const rlKey = `register:${ip}:${phone}`;
+    const rlKey = `register:${req.ip || 'ip'}:${phone}`;
     if (isLimited(rlKey, 5, 60 * 60 * 1000)) {
-      await logAuthEvent('register_rate_limited', {
-        phone,
-        ip,
-        ua,
-        success: false,
-      });
+      // rate limit не логируем (чтобы не спамить)
       return res.status(429).json({ error: 'too_many_requests' });
     }
 
     const exist = await db(`SELECT id FROM users WHERE phone=$1 LIMIT 1`, [phone]);
     if (exist.rows.length) {
-      await logAuthEvent('register_fail', {
-        phone,
-        ip,
-        ua,
-        success: false,
-      });
+      await logAuthEvent('register_phone_taken', req, { phone, success: false });
       return res.status(400).json({ error: 'phone_already_registered' });
     }
 
@@ -622,16 +609,14 @@ router.post('/register-user', async (req, res) => {
     await db(
       `INSERT INTO sessions(user_id, sid_hash, ua, ip, expires_at, last_activity_at)
        VALUES ($1,$2,$3,$4, now() + $5::interval, now())`,
-      [u.id, sidHash, ua, ip, SESSION_PG_INTERVAL]
+      [u.id, sidHash, req.headers['user-agent'] || null, req.ip || null, SESSION_PG_INTERVAL]
     );
 
     res.cookie(COOKIE_NAME, sidPlain, cookieOpts());
 
-    await logAuthEvent('register_success', {
+    await logAuthEvent('register_success', req, {
       userId: u.id,
       phone: u.phone,
-      ip,
-      ua,
       success: true,
     });
 
@@ -691,38 +676,21 @@ router.post('/login-password', async (req, res) => {
     const phoneRaw = String(body.phone || '');
     const password = String(body.password || '');
 
-    const ip = req.ip || 'unknown';
-    const ua = req.headers['user-agent'] || null;
-
     if (!phoneRaw || !password) {
-      await logAuthEvent('login_fail', {
-        phone: phoneRaw,
-        ip,
-        ua,
-        success: false,
-      });
+      // bad_input НЕ логируем
       return res.status(400).json({ error: 'phone_password_required' });
     }
 
-    const rlKey = `login:${ip}:${normPhone(phoneRaw)}`;
+    const phoneNormForKey = normPhone(phoneRaw) || 'invalid';
+    const rlKey = `login:${req.ip || 'ip'}:${phoneNormForKey}`;
     if (isLimited(rlKey, 10, 10 * 60 * 1000)) {
-      await logAuthEvent('login_rate_limited', {
-        phone: phoneRaw,
-        ip,
-        ua,
-        success: false,
-      });
+      // rate limit не логируем (чтобы не спамить)
       return res.status(429).json({ error: 'too_many_requests' });
     }
 
     const phone = normPhone(phoneRaw);
     if (!phone) {
-      await logAuthEvent('login_fail', {
-        phone: phoneRaw,
-        ip,
-        ua,
-        success: false,
-      });
+      // bad_input НЕ логируем
       return res.status(400).json({ error: 'phone_required' });
     }
 
@@ -735,10 +703,8 @@ router.post('/login-password', async (req, res) => {
     );
 
     if (!rowCount) {
-      await logAuthEvent('login_fail', {
+      await logAuthEvent('login_invalid_credentials', req, {
         phone,
-        ip,
-        ua,
         success: false,
       });
       return res.status(401).json({
@@ -751,11 +717,9 @@ router.post('/login-password', async (req, res) => {
 
     const ok = await bcrypt.compare(password, u.password_hash);
     if (!ok) {
-      await logAuthEvent('login_fail', {
+      await logAuthEvent('login_invalid_credentials', req, {
         userId: u.id,
         phone: u.phone,
-        ip,
-        ua,
         success: false,
       });
       return res.status(401).json({
@@ -789,11 +753,9 @@ router.post('/login-password', async (req, res) => {
 
     res.cookie(COOKIE_NAME, sidPlain, cookieOpts());
 
-    await logAuthEvent('login_success', {
+    await logAuthEvent('login_success', req, {
       userId: u.id,
       phone: u.phone,
-      ip,
-      ua,
       success: true,
     });
 
@@ -811,8 +773,28 @@ router.post('/login-password', async (req, res) => {
 router.post('/logout', async (req, res) => {
   try {
     const raw = req.cookies?.[COOKIE_NAME];
+
+    let userId = null;
+    let phone = null;
+
     if (raw) {
       const h = sha256(raw);
+
+      // Берём user_id до revoke — чтобы корректно залогировать logout
+      const q = await db(
+        `SELECT s.user_id, u.phone
+           FROM sessions s
+           JOIN users u ON u.id = s.user_id
+          WHERE s.sid_hash = $1
+          LIMIT 1`,
+        [h]
+      );
+
+      if (q.rowCount) {
+        userId = q.rows[0].user_id;
+        phone = q.rows[0].phone;
+      }
+
       await db(
         `UPDATE sessions
             SET revoked_at = now()
@@ -821,7 +803,11 @@ router.post('/logout', async (req, res) => {
         [h]
       ).catch(() => {});
     }
+
     res.clearCookie(COOKIE_NAME, cookieOpts());
+
+    await logAuthEvent('logout', req, { userId, phone, success: true });
+
     return res.json({ ok: true });
   } catch (e) {
     console.error('logout error', e);

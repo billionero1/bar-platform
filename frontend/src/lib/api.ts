@@ -2,394 +2,194 @@
 
 const API_TIMEOUT = 10000;
 
-
-
 export type ApiError = Error & {
-
   status?: number;
-
   code?: string;
-
   details?: unknown;
-
 };
-
-
 
 type AuthHandlers = {
-
   onSessionExpired?: () => void;
-
 };
 
-
-
 let authHandlers: AuthHandlers = {};
-
 let csrfToken: string | null = null;
-
 let csrfInitialized = false;
 
+const ENV_BASE = (import.meta.env.VITE_API_URL || '').trim();
 
+// Авто-база: если VITE_API_URL не задан — берём hostname текущей страницы и порт 3001
+const AUTO_BASE =
+  typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:3001`
+    : '';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
-
-
+const API_BASE = ENV_BASE || AUTO_BASE;
 
 export function setAuthHandlers(handlers: AuthHandlers) {
-
   authHandlers = handlers;
-
 }
 
+// ===================================================================
+// CSRF
+// ===================================================================
 
-
-// === CSRF ===
-
-
+function normalizeBase(base: string) {
+  return base.replace(/\/+$/, '');
+}
 
 async function fetchCsrfToken(): Promise<string> {
+  const base = normalizeBase(API_BASE);
 
-  try {
+  const response = await fetch(base + '/v1/auth/csrf-token', {
+    method: 'GET',
+    credentials: 'include',
+  });
 
-    const response = await fetch(API_BASE + '/v1/auth/csrf-token', {
-
-      method: 'GET',
-
-      credentials: 'include',
-
-    });
-
-
-
-    if (!response.ok) {
-
-      throw new Error(`CSRF fetch failed: ${response.status}`);
-
-    }
-
-
-
-    const data = await response.json();
-
-    const token = data.csrfToken || 'not_available';
-
-    csrfToken = token;
-
-    csrfInitialized = true;
-
-    console.log('🔄 CSRF token obtained');
-
-    return token;
-
-  } catch (error) {
-
-    console.warn('⚠️ CSRF token fetch failed:', error);
-
-    csrfToken = 'not_available';
-
-    csrfInitialized = true;
-
-    return 'not_available';
-
+  if (!response.ok) {
+    // тут НЕ логируем, просто кидаем ошибку наверх
+    throw new Error(`CSRF fetch failed: ${response.status}`);
   }
 
+  const data = await response.json();
+  const token: string | null = data?.csrfToken ?? null;
+
+  if (!token) {
+    throw new Error('CSRF token missing in response');
+  }
+
+  csrfToken = token;
+  csrfInitialized = true;
+  return token;
 }
-
-
 
 export async function ensureCsrfInitialized(): Promise<void> {
-
-  if (!csrfInitialized) {
-
+  if (!csrfInitialized || !csrfToken) {
     await fetchCsrfToken();
-
   }
-
 }
 
-
-
-// === Основная функция API ===
-
-
+// ===================================================================
+// API
+// ===================================================================
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-
-  const url = path.startsWith('http') ? path : API_BASE + path;
+  const base = normalizeBase(API_BASE);
+  const p = path.startsWith('/') ? path : `/${path}`;
+  const url = path.startsWith('http') ? path : base + p;
 
   const method = (init.method || 'GET').toUpperCase();
-
   const isModifying = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
 
-
-
-  // Для модифицирующих запросов — гарантируем CSRF
-
+  // POST/PUT/DELETE/PATCH — всегда с CSRF
   if (isModifying) {
-
-    if (!csrfInitialized || !csrfToken) {
-
-      await fetchCsrfToken();
-
-    }
-
+    await ensureCsrfInitialized();
   }
 
-
-
   const controller = new AbortController();
-
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
 
-
-
   try {
-
     const headers: HeadersInit = {
-
       'Content-Type': 'application/json',
-
       ...(init.headers || {}),
-
     };
 
-
-
-    if (isModifying && csrfToken && csrfToken !== 'not_available') {
-
+    if (isModifying && csrfToken) {
       (headers as any)['X-CSRF-Token'] = csrfToken;
-
     }
 
+    let response = await fetch(url, {
+      ...init,
+      method,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
 
-
-    const doFetch = async (): Promise<Response> => {
-
-      return fetch(url, {
-
-        ...init,
-
-        method,
-
-        headers,
-
-        credentials: 'include',
-
-        signal: controller.signal,
-
-      });
-
-    };
-
-
-
-    let response = await doFetch();
-
-
-
-    // Спец-обработка CSRF 403 → обновляем токен и пробуем один раз ещё раз
-
+    // CSRF 403 → обновляем токен и пробуем ещё один раз
     if (response.status === 403 && isModifying) {
-
       try {
+        const data = await response.clone().json();
+        if (
+          data?.code === 'CSRF_TOKEN_INVALID' ||
+          data?.error === 'invalid_csrf_token'
+        ) {
+          await fetchCsrfToken();
+          if (csrfToken) {
+            (headers as any)['X-CSRF-Token'] = csrfToken;
 
-        const ct = response.headers.get('content-type');
-
-        if (ct && ct.includes('application/json')) {
-
-          const errData = await response.clone().json();
-
-          if (
-
-            errData?.code === 'CSRF_TOKEN_INVALID' ||
-
-            errData?.error === 'invalid_csrf_token'
-
-          ) {
-
-            await fetchCsrfToken();
-
-            if (csrfToken && csrfToken !== 'not_available') {
-
-              const retryHeaders: HeadersInit = {
-
-                ...headers,
-
-                'X-CSRF-Token': csrfToken,
-
-              };
-
-              response = await fetch(url, {
-
-                ...init,
-
-                method,
-
-                headers: retryHeaders,
-
-                credentials: 'include',
-
-                signal: controller.signal,
-
-              });
-
-            }
-
+            response = await fetch(url, {
+              ...init,
+              method,
+              headers,
+              credentials: 'include',
+              signal: controller.signal,
+            });
           }
-
         }
-
       } catch {
-
-        // если не смогли прочитать тело — просто идём дальше в общую обработку
-
+        // ignore
       }
-
     }
-
-
 
     clearTimeout(timeoutId);
 
-
-
-    // Успешный ответ
-
+    // SUCCESS
     if (response.ok) {
-
-      if (response.status === 204) {
-
-        return undefined as unknown as T;
-
-      }
+      if (response.status === 204) return undefined as unknown as T;
 
       const text = await response.text();
-
       if (!text) return undefined as unknown as T;
 
       try {
-
         return JSON.parse(text) as T;
-
       } catch {
-
         return text as unknown as T;
-
       }
-
     }
 
-
-
-    // НЕуспешный ответ → разбираем ошибку
-
+    // ERROR
     let data: any = null;
-
     try {
-
       data = await response.json();
-
-    } catch {
-
-      // тело не JSON — оставляем data = null
-
-    }
-
-
+    } catch {}
 
     const err = new Error(
-
-      data?.message ||
-
-        data?.error ||
-
-        response.statusText ||
-
-        'Request failed'
-
+      data?.message || data?.error || response.statusText || 'Request failed'
     ) as ApiError;
 
-
-
     err.status = response.status;
-
     if (data?.code) err.code = data.code;
-
     if (data?.details) err.details = data.details;
 
-
-
-    // === Специальная логика по 401 ===
-
+    // 401: дергаем onSessionExpired только по “сессионным” кодам
     if (response.status === 401) {
+      const sessionExpiredCodes = new Set([
+        'SESSION_EXPIRED',
+        'NO_SESSION',
+        'INVALID_SESSION',
+        'EXPIRED',
+      ]);
 
-      // Все 401 ошибки считаем истечением сессии
-
-      authHandlers.onSessionExpired?.();
-
-    } else if (response.status === 403 && isModifying) {
-
-      // CSRF после ретрая не починился
-
-      console.warn('⚠️ CSRF/403 for modifying request', {
-
-        path,
-
-        code: err.code,
-
-      });
-
-    } else {
-
-      // Все остальные ошибки логируем один раз
-
-      console.error('❌ API error', {
-
-        path,
-
-        status: err.status,
-
-        code: err.code,
-
-        message: err.message,
-
-      });
-
+      if (err.code && sessionExpiredCodes.has(err.code)) {
+        authHandlers.onSessionExpired?.();
+      }
     }
-
-
 
     throw err;
-
   } catch (error: any) {
-
     clearTimeout(timeoutId);
-
-
-
-    // Таймаут
 
     if (error?.name === 'AbortError') {
-
       const timeoutError = new Error('Request timeout') as ApiError;
-
       timeoutError.status = 408;
-
       timeoutError.code = 'REQUEST_TIMEOUT';
-
       throw timeoutError;
-
     }
 
-
-
     throw error;
-
   } finally {
-
     clearTimeout(timeoutId);
-
   }
-
 }
