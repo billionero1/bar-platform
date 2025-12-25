@@ -2,7 +2,9 @@
 
 import React from 'react';
 
-import { usePasswordRecovery } from '../../hooks/recovery/usePasswordRecovery';
+import { usePasswordRecovery } from '../../logic/usePasswordRecovery';
+
+
 
 
 

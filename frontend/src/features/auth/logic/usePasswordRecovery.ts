@@ -1,28 +1,19 @@
 // src/hooks/recovery/usePasswordRecovery.ts
 
 import React, { useContext, useMemo, useRef, useState } from 'react';
-
 import { useNavigate } from 'react-router-dom';
-
-import { api } from '../../shared/api'
-
-import { rusify } from '../../shared/lib'
-
-import { AuthContext } from '../../AuthContext';
+import { api } from '../../../shared/api';
+import { AuthContext } from '../../../AuthContext';
 
 import {
-
+  rusify,
   formatPhone,
-
   toApiWithPlus,
-
   toDbDigits,
-
   handlePhoneBackspace,
+} from '../../../shared/lib'
 
-} from '../../shared/lib'
-
-import { useResendTimer } from '../ResendTimer';
+import { useResendTimer } from '../../../hooks/ResendTimer';
 
 
 
