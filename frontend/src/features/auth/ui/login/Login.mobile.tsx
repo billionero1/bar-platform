@@ -1,7 +1,7 @@
 // src/pages/login/Login.mobile.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { usePasswordLogin } from '../../hooks/auth/usePasswordLogin';
+import { usePasswordLogin } from '../../logic/usePasswordLogin';
 
 const LoginMobile: React.FC = () => {
   const {

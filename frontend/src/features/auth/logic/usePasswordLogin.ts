@@ -4,23 +4,18 @@ import React, { useContext, useMemo, useState } from 'react';
 
 import { useNavigate, useLocation } from 'react-router-dom';
 
-import { AuthContext } from '../../AuthContext';
+import { AuthContext } from '../../../AuthContext';
 
-import { rusify } from '../../lib/errors';
+import { api } from '../../../shared/api';
 
 import {
-
+  rusify,
   formatPhone,
-
   toDbDigits,
-
   toApiWithPlus,
-
   handlePhoneBackspace,
-
   handlePhonePaste,
-
-} from '../../lib/phone';
+} from '../../../shared/lib';
 
 
 

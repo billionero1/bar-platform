@@ -1,195 +1,96 @@
 // src/main.tsx
-
 import React, { useEffect, useState } from 'react';
-
 import ReactDOM from 'react-dom/client';
-
 import { BrowserRouter } from 'react-router-dom';
 
-import { ensureCsrfInitialized } from './lib/api';
-
 import App from './App';
-
 import { AuthProvider } from './AuthContext';
 
+import './app/base.css';
 
+import { ensureCsrfInitialized } from './shared/api';
+import { LayoutProvider } from './shared/ui/LayoutProvider';
+import { useLayout } from './shared/ui/useLayout';
 
 // Простой лоадер
-
 const SimpleLoader: React.FC = () => (
-
-  <div style={{
-
-    display: 'flex',
-
-    justifyContent: 'center',
-
-    alignItems: 'center',
-
-    height: '100vh',
-
-    fontFamily: 'system-ui, sans-serif',
-
-    backgroundColor: '#f5f5f5'
-
-  }}>
-
-    <div style={{ textAlign: 'center', padding: '20px' }}>
-
-      <div style={{
-
-        width: '40px',
-
-        height: '40px',
-
-        border: '4px solid #e3e3e3',
-
-        borderTop: '4px solid #007bff',
-
-        borderRadius: '50%',
-
-        animation: 'spin 1s linear infinite',
-
-        margin: '0 auto 16px'
-
-      }} />
-
+  <div
+    style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh',
+      fontFamily: 'system-ui, sans-serif',
+      backgroundColor: '#f5f5f5',
+    }}
+  >
+    <div style={{ textAlign: 'center', padding: 20 }}>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          border: '4px solid #e3e3e3',
+          borderTop: '4px solid #007bff',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          margin: '0 auto 16px',
+        }}
+      />
       <p style={{ margin: 0, color: '#666' }}>Загрузка...</p>
-
     </div>
 
     <style>
-
       {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
-
     </style>
-
   </div>
-
 );
 
-
-
-const RootApp: React.FC = () => {
-
-  const [stylesLoaded, setStylesLoaded] = useState(false);
-
-  const [appReady, setAppReady] = useState(false);
-
-
+const Boot: React.FC = () => {
+  const layout = useLayout(); // ✅ хук на верхнем уровне
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
 
-    const initializeApp = async () => {
+    async function init() {
+      setReady(false);
 
       try {
+        // 1) Стили — строго по breakpoints
+        if (layout === 'mobile') await import('./app/layout.mobile.css');
+        if (layout === 'tablet') await import('./app/layout.tablet.css');
+        if (layout === 'desktop') await import('./app/layout.desktop.css');
 
-        // 1. Загружаем стили
-
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-
-                        window.innerWidth <= 768;
-
-
-
-        if (isMobile) {
-
-          await import('./index.mobile.css');
-
-        } else {
-
-          await import('./index.desktop.css');
-
-        }
-
-        setStylesLoaded(true);
-
-
-
-        // 2. ПРИНУДИТЕЛЬНО инициализируем CSRF
-
-        console.log('🔄 Main: Ensuring CSRF initialization...');
-
+        // 2) CSRF — как было
         await ensureCsrfInitialized();
-
-        console.log('✅ Main: CSRF initialization completed');
-
-        
-
-        // Даем небольшую задержку для гарантии
-
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        
-
-        setAppReady(true);
-
-
-
-      } catch (error) {
-
-        console.error('App initialization failed:', error);
-
-        setStylesLoaded(true);
-
-        setAppReady(true); // Все равно продолжаем
-
+      } catch (e) {
+        console.error('❌ Boot init error:', e);
+      } finally {
+        if (!cancelled) setReady(true);
       }
+    }
 
+    void init();
+    return () => {
+      cancelled = true;
     };
+  }, [layout]);
 
-
-
-    initializeApp();
-
-  }, []);
-
-
-
-  if (!stylesLoaded || !appReady) {
-
-    return <SimpleLoader />;
-
-  }
-
-
-
+  if (!ready) return <SimpleLoader />;
   return <App />;
-
 };
 
-
-
 const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Failed to find the root element');
 
-if (!rootElement) {
-
-  throw new Error('Failed to find the root element');
-
-}
-
-
-
-const root = ReactDOM.createRoot(rootElement);
-
-
-
-root.render(
-
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-
     <BrowserRouter>
-
       <AuthProvider>
-
-        <RootApp />
-
+        <LayoutProvider>
+          <Boot />
+        </LayoutProvider>
       </AuthProvider>
-
     </BrowserRouter>
-
   </React.StrictMode>
-
 );
-
-

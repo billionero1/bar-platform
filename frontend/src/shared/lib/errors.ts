@@ -1,4 +1,4 @@
-// src/lib/errors.ts
+// src/shared/lib/errors.ts
 // Единая карта сообщений на русском и вспомогательная функция rusify()
 
 type Err = { error?: string; status?: number; message?: string };

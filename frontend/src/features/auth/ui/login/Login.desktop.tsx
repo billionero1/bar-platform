@@ -1,7 +1,8 @@
 // src/pages/login/Login.desktop.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { usePasswordLogin } from '../../hooks/auth/usePasswordLogin';
+import { usePasswordLogin } from '../../logic/usePasswordLogin';
+
 
 const LoginDesktop: React.FC = () => {
   const {

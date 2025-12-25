@@ -1,6 +1,6 @@
 // src/pages/register/Register.desktop.tsx
 import React from 'react';
-import { useRegisterFlow } from '../../hooks/register/useRegisterFlow';
+import { useRegisterFlow } from '../../logic/useRegisterFlow';
 
 const RegisterDesktop: React.FC = () => {
   const {

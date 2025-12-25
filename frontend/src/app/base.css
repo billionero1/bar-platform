@@ -1,0 +1,9 @@
+/* src/app/base.css */
+:root {
+  color-scheme: dark;
+}
+
+/* базовый reset, чтобы не зависеть от layout */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; }

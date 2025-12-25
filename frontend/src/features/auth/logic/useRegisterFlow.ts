@@ -7,18 +7,18 @@ import React, {
   useState,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../lib/api';
-import { rusify } from '../../lib/errors';
-import { AuthContext } from '../../AuthContext';
+import { api } from '../../../shared/api'
+import { AuthContext } from '../../../AuthContext';
 import {
+  rusify,
   formatPhone,
   toApiWithPlus,
   toDbDigits,
   handlePhoneBackspace,
-} from '../../lib/phone';
-import { useResendTimer } from '../ResendTimer';
+} from '../../../shared/lib'
+import { useResendTimer } from '../../../hooks/ResendTimer';
 
-import type { UserPayload } from '../../AuthContext';
+import type { UserPayload } from '../../../AuthContext';
 
 type Step = 'phone' | 'code' | 'password';
 

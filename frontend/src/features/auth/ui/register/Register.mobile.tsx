@@ -4,7 +4,7 @@ import React from 'react';
 
 // УДАЛЕН импорт PinPad
 
-import { useRegisterFlow } from '../../hooks/register/useRegisterFlow';
+import { useRegisterFlow } from '../../logic/useRegisterFlow';
 
 
 

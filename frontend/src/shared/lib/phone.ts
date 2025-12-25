@@ -1,4 +1,4 @@
-// src/lib/phone.ts
+// src/shared/lib/phone.ts
 export function phoneDigits(input: string): string {
   // только цифры, приводим к ведущей "7", максимум 11
   let d = (input || '').replace(/\D/g, '');

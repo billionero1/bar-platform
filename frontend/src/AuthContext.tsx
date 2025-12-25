@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { api, setAuthHandlers } from './lib/api';
+import { api, setAuthHandlers } from './shared/api';
+
 
 
 

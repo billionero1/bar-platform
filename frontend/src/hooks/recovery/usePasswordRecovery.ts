@@ -4,9 +4,9 @@ import React, { useContext, useMemo, useRef, useState } from 'react';
 
 import { useNavigate } from 'react-router-dom';
 
-import { api } from '../../lib/api';
+import { api } from '../../shared/api'
 
-import { rusify } from '../../lib/errors';
+import { rusify } from '../../shared/lib'
 
 import { AuthContext } from '../../AuthContext';
 
@@ -20,7 +20,7 @@ import {
 
   handlePhoneBackspace,
 
-} from '../../lib/phone';
+} from '../../shared/lib'
 
 import { useResendTimer } from '../ResendTimer';
 

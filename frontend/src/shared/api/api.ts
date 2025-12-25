@@ -1,4 +1,4 @@
-// src/lib/api.ts
+// src/shared/api/api.ts
 
 const API_TIMEOUT = 10000;
 

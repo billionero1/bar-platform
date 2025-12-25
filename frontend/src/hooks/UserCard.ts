@@ -1,6 +1,6 @@
 // src/hooks/useUserCard.ts
 import { useMemo } from 'react';
-import { formatPhone } from '../lib/phone';
+import { formatPhone } from '../shared/lib'
 
 type UserLike = {
   name?: string | null;
