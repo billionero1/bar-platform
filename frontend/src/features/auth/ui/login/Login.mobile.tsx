@@ -2,6 +2,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { usePasswordLogin } from '../../logic/usePasswordLogin';
+import '../_shared/auth.mobile.css';
+import './Login.mobile.css';
+
 
 const LoginMobile: React.FC = () => {
   const {

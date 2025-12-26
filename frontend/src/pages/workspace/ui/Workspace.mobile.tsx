@@ -2,11 +2,11 @@
 
 import React, { useContext, useMemo, useState } from 'react';
 
-import Header from '../../components/Header';
+import Header from '../../../components/Header';
 
-import Footer from '../../components/Footer';
+import Footer from '../../../components/Footer';
 
-import { AuthContext } from '../../AuthContext';
+import { AuthContext } from '../../../AuthContext';
 
 
 

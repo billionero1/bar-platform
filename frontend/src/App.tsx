@@ -9,22 +9,14 @@ import AuthShell from './pages/auth/AuthShell';
 import Login from './features/auth/ui/login/Login';
 import Register from './features/auth/ui/register/Register';
 import RecoverPassword from './features/auth/ui/recover/RecoverPassword';
+import Workspace from './pages/workspace/ui/Workspace';
 
 
-
-// DESKTOP
-import WorkspaceDesktop from './pages/workspace/Workspace.desktop';
-
-// MOBILE
-import WorkspaceMobile from './pages/workspace/Workspace.mobile';
 
 const App: React.FC = () => {
   const layout = useLayoutCtx();
 
   const isMobile = layout === 'mobile';
-
-  // Register/Recover/Workspace пока по старой схеме
-  const Workspace = isMobile ? WorkspaceMobile : WorkspaceDesktop;
 
   return (
     <ThemeProvider>
