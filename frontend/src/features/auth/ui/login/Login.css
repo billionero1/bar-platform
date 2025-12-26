@@ -1,0 +1,11 @@
+/* src/features/auth/ui/login/Login.css */
+
+/* Только логин центрируем по вертикали (уникально для этой страницы) */
+.auth-page--center {
+  justify-content: center;
+}
+
+/* У логина нет header — форма должна начинаться сразу */
+.auth-page-inner--login .login-form {
+  margin-top: 0;
+}

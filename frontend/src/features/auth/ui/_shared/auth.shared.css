@@ -1,26 +1,23 @@
-/* src/features/auth/ui/_shared/auth.mobile.css */
+/* src/features/auth/ui/_shared/auth.shared.css */
 
-/* Layout внутри auth-страниц (мобильный) */
+/* ==========================================================================
+   AUTH: ЕДИНЫЕ стили форм и базового каркаса страниц (для всех платформ)
+   Отличия устройств — только в AuthShell (split/full-screen), НЕ здесь
+   ========================================================================== */
 
-/* auth-страница — общий каркас */
+/* ======= БАЗОВЫЙ КАРКАС СТРАНИЦ ======= */
+
 .auth-page {
+  /* важно: работает и внутри "карточки" мобилки, и внутри right-inner в split */
   min-height: 0;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-}
 
-/* Вариант 1: логин — весь блок (форма + ссылки) по центру экрана */
-.auth-page--center {
-  justify-content: center;
-}
-
-/* Вариант 2: регистрация / восстановление — прижато к верху */
-.auth-page--top {
+  /* по умолчанию все auth-страницы "сверху" (Register/Recover) */
   justify-content: flex-start;
 }
 
-/* Внутри main просто колонка контента */
 .auth-page-main {
   padding-top: 0;
   padding-bottom: 0;
@@ -37,27 +34,20 @@
   flex-direction: column;
 }
 
-.auth-page-inner--recover .login-form {
-  margin-top: 16px;
-}
-
-/* футер со ссылками — сразу под основным блоком */
+/* футер со ссылками */
 .auth-page-footer {
   margin-top: 20px;
   padding-bottom: 0;
 }
 
-.auth-page .login-links-row {
-  margin-top: 16px;
-}
+/* ======= ЗАГОЛОВКИ (для Register/Recover) ======= */
 
-/* Заголовок форм */
 .login-header {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
-  min-height: 24px;
+  min-height: 20px;
 }
 
 .login-header h2 {
@@ -91,7 +81,6 @@
   background: rgba(15, 23, 42, 0.96);
   cursor: pointer;
   position: relative;
-  margin-right: 2px;
 }
 
 .login-header-back::before {
@@ -106,9 +95,10 @@
   transform: rotate(45deg);
 }
 
-/* Форма */
+/* ======= ФОРМА ======= */
+
 .login-form {
-  margin-top: 16px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -128,13 +118,15 @@
   background: rgba(15, 23, 42, 0.96);
   color: #e5e7eb;
   outline: none;
-  font-size: 16px; /* чтобы iOS НЕ зумил */
+  font-size: 16px; /* чтобы iOS не зумил */
   box-sizing: border-box;
 }
 
 .login-form input::placeholder {
   color: #6b7280;
 }
+
+/* ======= ОСНОВНАЯ КНОПКА ======= */
 
 .login-submit {
   margin-top: 16px;
@@ -181,6 +173,8 @@
   filter: grayscale(0.1);
 }
 
+/* ======= ССЫЛКИ ПОД ФОРМОЙ ======= */
+
 .login-links-row {
   margin-top: 24px;
   display: flex;
@@ -197,7 +191,8 @@
   background: rgba(55, 65, 81, 1);
 }
 
-/* Тех-тексты, ошибки, ссылки */
+/* ======= ТЕКСТЫ / ОШИБКИ / ССЫЛКИ ======= */
+
 .hint {
   font-size: 12px;
   color: #a6accd;
@@ -210,16 +205,6 @@
   text-align: left;
 }
 
-.muted a {
-  color: #9ca3af;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.muted a:hover {
-  color: #e5e7eb;
-}
-
 .muted-center {
   text-align: center;
   width: 100%;
@@ -229,21 +214,6 @@
   font-size: 12px;
   color: #f97373;
   text-align: left;
-}
-
-.linklike {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  font: inherit;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: none !important;
-}
-
-.linklike:hover {
-  color: #e5e7eb;
 }
 
 .link-text {
@@ -261,7 +231,8 @@
   color: #e5e7eb;
 }
 
-/* Поле пароля с "глазом" */
+/* ======= ПАРОЛЬ С ГЛАЗОМ ======= */
+
 .password-field {
   position: relative;
 }
@@ -303,4 +274,14 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+
+/* ======= FOCUS (только auth элементы) ======= */
+
+.login-submit:focus-visible,
+.link-text:focus-visible,
+.login-header-back:focus-visible,
+.password-field .eye:focus-visible {
+  outline: 2px solid rgba(129, 140, 248, 0.95);
+  outline-offset: 3px;
 }

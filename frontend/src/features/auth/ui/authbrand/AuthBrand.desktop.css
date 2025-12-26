@@ -1,0 +1,76 @@
+/* src/features/auth/ui/authbrand/AuthBrand.desktop.css */
+
+/* Левая часть (бренд-блок) — как было раньше */
+
+.login-left {
+  flex: 1 1 60%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 48px 0;
+}
+
+.login-left-inner {
+  width: 100%;
+  max-width: 640px;
+  padding: 0 64px 0 72px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border-right: 1px solid rgba(31, 41, 55, 1);
+}
+
+.login-brand-kicker {
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.login-brand-title {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.login-brand-tagline {
+  margin: 0;
+  max-width: 420px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cbd5f5;
+}
+
+/* "Заготовки | Техкарты | ..." — именно так у тебя было */
+.login-brand-meta {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #9ca3af;
+}
+
+.login-brand-meta span {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.login-brand-meta span::after {
+  content: '|';
+  opacity: 0.5;
+  margin: 0 6px;
+}
+
+.login-brand-meta span:last-child::after {
+  content: '';
+  margin: 0;
+}

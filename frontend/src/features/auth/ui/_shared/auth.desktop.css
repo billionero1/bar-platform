@@ -1,0 +1,78 @@
+/* src/features/auth/ui/_shared/auth.desktop.css */
+
+/* ==========================================================================
+   AUTH: split layout (desktop/tablet)
+   Здесь НЕТ стилей форм. Формы — в auth.shared.css
+   ========================================================================== */
+
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.auth-screen--split {
+  padding: 0;
+}
+
+/* ==========================================================================
+   SPLIT LAYOUT
+   ========================================================================== */
+
+.login-layout {
+  flex: 1 1 auto;
+  display: flex;
+  width: 100%;
+}
+
+/* Левая часть (бренд-блок) */
+.login-left {
+  flex: 1 1 60%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 48px 0;
+}
+
+.login-left-inner {
+  width: 100%;
+  max-width: 640px;
+  padding: 0 64px 0 72px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border-right: 1px solid rgba(31, 41, 55, 1);
+}
+
+/* Правая часть — форма */
+.login-right {
+  flex: 1 1 40%;
+  display: flex;
+  align-items: center; /* центр внутри split делается контейнером */
+  justify-content: flex-start;
+  padding: 48px 0;
+}
+
+.login-right-inner {
+  width: 100%;
+  max-width: 420px;
+  padding: 0 72px 0 56px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-mobile-brand {
+  display: none;
+}
+
+@media (max-height: 640px) and (min-width: 769px) {
+  .login-left,
+  .login-right {
+    padding: 32px 0;
+  }
+}

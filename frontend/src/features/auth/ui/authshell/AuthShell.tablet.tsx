@@ -1,7 +1,7 @@
 // src/pages/auth/AuthShell.tablet.tsx
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import AuthBrandDesktop from '../auth/AuthBrand.desktop';
+import AuthBrandDesktop from '../authbrand/AuthBrand.desktop';
 
 const AuthShellTablet: React.FC = () => {
   return (

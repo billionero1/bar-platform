@@ -1,5 +1,7 @@
 // src/components/auth/Desktop.AuthBrand.tsx
 import React from 'react';
+import './AuthBrand.desktop.css';
+
 
 const AuthBrandDesktop: React.FC = () => {
   return (

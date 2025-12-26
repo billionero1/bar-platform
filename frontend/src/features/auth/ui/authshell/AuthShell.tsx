@@ -1,6 +1,6 @@
 // src/pages/auth/AuthShell.tsx
 import React from 'react';
-import { useLayoutCtx } from '../../shared/ui/LayoutProvider';
+import { useLayoutCtx } from '../../../../shared/ui/LayoutProvider';
 
 import AuthShellMobile from './AuthShell.mobile';
 import AuthShellTablet from './AuthShell.tablet';

@@ -5,7 +5,7 @@ import { RequireAuth, OnlyGuests } from './guards';
 import { ThemeProvider } from './ThemeContext';
 import { useLayoutCtx } from './shared/ui/LayoutProvider';
 
-import AuthShell from './pages/auth/AuthShell';
+import AuthShell from './features/auth/ui/authshell/AuthShell';
 import Login from './features/auth/ui/login/Login';
 import Register from './features/auth/ui/register/Register';
 import RecoverPassword from './features/auth/ui/recover/RecoverPassword';
