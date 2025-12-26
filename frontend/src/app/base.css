@@ -1,9 +1,62 @@
 /* src/app/base.css */
+
+/* Общие токены/база. Layout-* файлы могут переопределять фон и т.п. */
 :root {
   color-scheme: dark;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
 }
 
-/* базовый reset, чтобы не зависеть от layout */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body { margin: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Базовые элементы */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* Стабильный focus (ты уже используешь “без outline” — фиксируем единообразно) */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

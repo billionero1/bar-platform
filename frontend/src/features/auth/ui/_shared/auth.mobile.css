@@ -1,5 +1,6 @@
-/* Auto-extracted from app/layout.mobile.css — Auth shared (mobile)
-   Селекторы и значения оставлены 1-в-1, чтобы ничего не разъезжалось. */
+/* src/features/auth/ui/_shared/auth.mobile.css */
+
+/* Layout внутри auth-страниц (мобильный) */
 
 /* auth-страница — общий каркас */
 .auth-page {
@@ -11,12 +12,12 @@
 
 /* Вариант 1: логин — весь блок (форма + ссылки) по центру экрана */
 .auth-page--center {
-  justify-content: center;          /* центрирует auth-page-main + auth-page-footer как ГРУППУ */
+  justify-content: center;
 }
 
 /* Вариант 2: регистрация / восстановление — прижато к верху */
 .auth-page--top {
-  justify-content: flex-start;      /* блоки просто идут сверху вниз */
+  justify-content: flex-start;
 }
 
 /* Внутри main просто колонка контента */
@@ -27,108 +28,230 @@
   flex-direction: column;
 }
 
+/* узкий внутренний столбец, чтобы поля не были во всю ширину */
 .auth-page-inner {
   width: 100%;
   max-width: 380px;
   margin: 0 auto;
-}
-
-.auth-page-inner--login {
-  max-width: 380px;
-}
-
-.auth-page-footer {
-  width: 100%;
-  max-width: 380px;
-  margin: 0 auto;
-}
-
-.auth-brand-mobile {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #9ca3af;
-  width: 100%;
-  max-width: 380px;
-  margin: 0 auto 16px auto;
-  padding: 0;
+  flex-direction: column;
 }
 
-.auth-brand-mobile__logo {
-  font-size: 16px;
-  font-weight: 700;
+.auth-page-inner--recover .login-form {
+  margin-top: 16px;
+}
+
+/* футер со ссылками — сразу под основным блоком */
+.auth-page-footer {
+  margin-top: 20px;
+  padding-bottom: 0;
+}
+
+.auth-page .login-links-row {
+  margin-top: 16px;
+}
+
+/* Заголовок форм */
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.login-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
   color: #f9fafb;
 }
 
+.login-header-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.login-header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login-header--with-back .login-header-sub {
+  margin-left: 0;
+}
+
+.login-header-back {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.96);
+  cursor: pointer;
+  position: relative;
+  margin-right: 2px;
+}
+
+.login-header-back::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 8px;
+  border-left: 2px solid #e5e7eb;
+  border-bottom: 2px solid #e5e7eb;
+  transform: rotate(45deg);
+}
+
+/* Форма */
 .login-form {
+  margin-top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .login-form label {
   font-size: 12px;
-  color: rgba(255,255,255,.7);
-  margin-bottom: 6px;
+  opacity: 0.95;
 }
 
 .login-form input {
   width: 100%;
-  height: 42px;
+  height: 44px;
   padding: 0 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.06);
-  color: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e5e7eb;
   outline: none;
-}
-
-.login-form input:focus {
-  border-color: rgba(255,255,255,.22);
-  background: rgba(255,255,255,.07);
+  font-size: 16px; /* чтобы iOS НЕ зумил */
+  box-sizing: border-box;
 }
 
 .login-form input::placeholder {
-  color: rgba(255,255,255,.35);
+  color: #6b7280;
 }
 
 .login-submit {
-  width: 100%;
-  height: 42px;
-  border-radius: 12px;
-  border: none;
-  font-weight: 700;
+  margin-top: 16px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.9);
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #f9fafb;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: filter .15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.9),
+    0 0 0 1px rgba(15, 23, 42, 0.9);
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease,
+    opacity 0.16s ease;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.login-submit:hover:not(:disabled) {
+  filter: brightness(1.04);
+  box-shadow:
+    0 14px 36px rgba(15, 23, 42, 0.95),
+    0 0 0 1px rgba(15, 23, 42, 1);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.9),
+    0 0 0 1px rgba(15, 23, 42, 1);
 }
 
 .login-submit:disabled {
-  opacity: .6;
-  cursor: not-allowed;
+  opacity: 0.55;
+  cursor: default;
+  filter: grayscale(0.1);
 }
 
 .login-links-row {
+  margin-top: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .login-links-divider {
-  width: 1px;
+  flex: 0 0 1px;
   height: 14px;
-  background: rgba(255,255,255,.25);
+  background: rgba(55, 65, 81, 1);
+}
+
+/* Тех-тексты, ошибки, ссылки */
+.hint {
+  font-size: 12px;
+  color: #a6accd;
+  text-align: left;
+}
+
+.muted {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: left;
+}
+
+.muted a {
+  color: #9ca3af;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.muted a:hover {
+  color: #e5e7eb;
+}
+
+.muted-center {
+  text-align: center;
+  width: 100%;
+}
+
+.error {
+  font-size: 12px;
+  color: #f97373;
+  text-align: left;
+}
+
+.linklike {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none !important;
+}
+
+.linklike:hover {
+  color: #e5e7eb;
 }
 
 .link-text {
-  color: rgba(255,255,255,.8);
-  text-decoration: underline;
-  background: none;
+  color: #9ca3af;
+  text-decoration: none !important;
+  cursor: pointer;
   border: none;
+  background: none;
   padding: 0;
   font: inherit;
   font-size: 12px;
@@ -136,16 +259,6 @@
 
 .link-text:hover {
   color: #e5e7eb;
-}
-
-.error {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(239,68,68,.14);
-  border: 1px solid rgba(239,68,68,.28);
-  color: #fecaca;
-  font-size: 13px;
 }
 
 /* Поле пароля с "глазом" */
@@ -166,9 +279,28 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  opacity: .8;
 }
 
-.auth-page .login-links-row {
-  margin-top: 16px;
+.password-field .eye::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 10px;
+  border: 2px solid #9ca3af;
+  border-radius: 50% / 60%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.password-field .eye::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #9ca3af;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }

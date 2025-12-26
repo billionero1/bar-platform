@@ -2,6 +2,10 @@
 
 import React from 'react';
 import { usePasswordRecovery } from '../../logic/usePasswordRecovery';
+import '../_shared/auth.mobile.css';
+import './RecoverPassword.mobile.css';
+
+
 
 const RecoverMobile: React.FC = () => {
   const {

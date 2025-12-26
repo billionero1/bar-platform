@@ -140,10 +140,10 @@ body {
 
 .app-header__search-input {
   width: 100%;
-  height: 32px;                 /* ← как у аватара */
+  height: 32px; /* ← как у аватара */
   padding: 0 12px;
 
-  font-size: 16px;              /* ОСТАВЛЯЕМ ≥16px — иначе iOS зум */
+  font-size: 16px; /* ОСТАВЛЯЕМ ≥16px — иначе iOS зум */
   line-height: normal;
 
   display: flex;
@@ -169,7 +169,7 @@ body {
 }
 
 /* ========================================================================== */
-/* WORKSPACE: базовый layout                                                 */
+/* WORKSPACE: базовый layout                                                  */
 /* ========================================================================== */
 
 .workspace-main {
@@ -191,7 +191,7 @@ body {
 }
 
 /* ========================================================================== */
-/* WORKSPACE: onboarding hero                                                */
+/* WORKSPACE: onboarding hero                                                 */
 /* ========================================================================== */
 
 .workspace-hero {
@@ -250,7 +250,7 @@ body {
 }
 
 /* ========================================================================== */
-/* WORKSPACE: section + header                                               */
+/* WORKSPACE: section + header                                                */
 /* ========================================================================== */
 
 .workspace-section {
@@ -290,7 +290,6 @@ body {
 }
 
 /* выпадающее меню "Новая среда" */
-
 .workspace-new-menu {
   margin-bottom: 12px;
   padding: 10px;
@@ -314,7 +313,7 @@ body {
 }
 
 /* ========================================================================== */
-/* WORKSPACE: карточки (2 колонки, единый стиль)                             */
+/* WORKSPACE: карточки (2 колонки, единый стиль)                              */
 /* ========================================================================== */
 
 .workspace-card-list {
@@ -393,7 +392,7 @@ body {
 }
 
 /* ========================================================================== */
-/* FOOTER NAVIGATION (mobile)                                                */
+/* FOOTER NAVIGATION (mobile)                                                 */
 /* ========================================================================== */
 
 .app-footer {
@@ -413,7 +412,6 @@ body {
 }
 
 /* новая навигация под Footer.tsx */
-
 .app-footer-nav {
   width: 100%;
   max-width: 460px;
@@ -451,12 +449,6 @@ body {
   display: inline-block;
 }
 
-.app-footer-nav__icon--home {
-}
-
-.app-footer-nav__icon--feed {
-}
-
 .app-footer-nav__label {
   line-height: 1.2;
 }
@@ -470,7 +462,7 @@ body {
   height: 30px;
   border-radius: 999px;
   background: linear-gradient(135deg, #1f2937, #4b5563);
-  display: зflex;
+  display: flex; /* FIX: было "зflex" */
   align-items: center;
   justify-content: center;
   font-size: 13px;
@@ -479,384 +471,7 @@ body {
 }
 
 /* ========================================================================== */
-/* AUTH: общий контейнер (мобильный)                                         */
-/* ========================================================================== */
-
-.auth-mobile-shell {
-  height: 100dvh;                /* динамическая высота видимой области */
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  background: radial-gradient(circle at top, #111827 0, #020617 55%, #020617 100%);
-  padding-top: calc(24px + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-  padding-left: 16px;
-  padding-right: 16px;
-  overflow-y: auto;              /* скролл только если реально НЕ влезло */
-  overscroll-behavior-y: contain;
-}
-
-/* основной блок под auth-страницы */
-.auth-mobile-main {
-  flex: 1 1 auto;
-  display: flex;
-  justify-content: center;   /* центрируем карточку по вертикали внутри shell */
-}
-
-/* карточка форм */
-.auth-mobile-card {
-  flex: 1 1 auto;            /* карточка растягивается по высоте */
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;    /* сверху логотип, ниже страница */
-}
-
-/* ========================================================================== */
-/* Layout внутри auth-страниц (мобильный)                                     */
-/* ========================================================================== */
-
-/* auth-страница — общий каркас */
-.auth-page {
-  min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Вариант 1: логин — весь блок (форма + ссылки) по центру экрана */
-.auth-page--center {
-  justify-content: center;          /* центрирует auth-page-main + auth-page-footer как ГРУППУ */
-}
-
-/* Вариант 2: регистрация / восстановление — прижато к верху */
-.auth-page--top {
-  justify-content: flex-start;      /* блоки просто идут сверху вниз */
-}
-
-/* Внутри main просто колонка контента */
-.auth-page-main {
-  padding-top: 0;
-  padding-bottom: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* узкий внутренний столбец, чтобы поля не были во всю ширину */
-.auth-page-inner {
-  width: 100%;
-  max-width: 380px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-}
-
-/* специфично под логин */
-.auth-page-inner--login .login-form {
-  margin-top: 18px;
-}
-
-.auth-page-inner--login .login-submit {
-  margin-тop: 18px;
-}
-
-/* футер со ссылками — сразу под основным блоком */
-.auth-page-footer {
-  margin-top: 20px;
-  padding-bottom: 0;
-}
-
-/* верхняя строка с логотипом ПРО.БАР */
-.auth-brand-mobile {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #9ca3af;
-  width: 100%;
-  max-width: 380px;
-  margin: 0 auto 16px auto;
-  padding: 0;
-}
-
-.auth-brand-mobile__logo {
-  font-size: 16px;
-  font-weight: 700;
-  color: #f9fafb;
-}
-
-.auth-page .login-links-row {
-  margin-top: 16px;
-}
-
-/* ========================================================================== */
-/* Заголовок форм логина / регистрации / восстановления                      */
-/* ========================================================================== */
-
-.login-header {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-height: 24px;
-}
-
-.login-header h2 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: #f9fafb;
-}
-
-.login-header-sub {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #9ca3af;
-}
-
-.login-header-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.login-header--with-back .login-header-sub {
-  margin-left: 0;
-}
-
-.login-header-back {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid rgba(55, 65, 81, 0.9);
-  background: rgba(15, 23, 42, 0.96);
-  cursor: pointer;
-  position: relative;
-  margin-right: 2px;
-}
-
-.login-header-back::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 8px;
-  height: 8px;
-  border-left: 2px solid #e5e7eb;
-  border-bottom: 2px solid #e5e7eb;
-  transform: rotate(45deg);
-}
-
-/* ========================================================================== */
-/* Форма логина / регистрации                                                 */
-/* ========================================================================== */
-
-.login-form {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.login-form label {
-  font-size: 12px;
-  opacity: 0.95;
-}
-
-.login-form input {
-  width: 100%;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(55, 65, 81, 0.9);
-  background: rgba(15, 23, 42, 0.96);
-  color: #e5e7eb;
-  outline: none;
-  font-size: 16px; /* чтобы iOS НЕ зумил при фокусе */
-  box-sizing: border-box;
-}
-
-.login-form input::placeholder {
-  color: #6b7280;
-}
-
-.login-submit {
-  margin-top: 16px;
-  height: 46px;
-  border-radius: 999px;
-  border: 1px solid rgba(37, 99, 235, 0.9);
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  color: #f9fafb;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow:
-    0 10px 30px rgba(15, 23, 42, 0.9),
-    0 0 0 1px rgba(15, 23, 42, 0.9);
-  transition:
-    transform 0.06s ease,
-    box-shadow 0.16s ease,
-    filter 0.16s ease,
-    opacity 0.16s ease;
-  box-sizing: border-box;
-  width: 100%;
-}
-
-.login-submit:hover:not(:disabled) {
-  filter: brightness(1.04);
-  box-shadow:
-    0 14px 36px rgba(15, 23, 42, 0.95),
-    0 0 0 1px rgba(15, 23, 42, 1);
-}
-
-.login-submit:active:not(:disabled) {
-  transform: translateY(1px) scale(0.985);
-  box-shadow:
-    0 8px 22px rgba(15, 23, 42, 0.9),
-    0 0 0 1px rgba(15, 23, 42, 1);
-}
-
-.login-submit:disabled {
-  opacity: 0.55;
-  cursor: default;
-  filter: grayscale(0.1);
-}
-
-.login-links-row {
-  margin-top: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.login-links-divider {
-  flex: 0 0 1px;
-  height: 14px;
-  background: rgba(55, 65, 81, 1);
-}
-
-/* Тех-тексты, ошибки, ссылки */
-
-.hint {
-  font-size: 12px;
-  color: #a6accd;
-  text-align: left;
-}
-
-.muted {
-  font-size: 12px;
-  color: #6b7280;
-  text-align: left;
-}
-
-.muted a {
-  color: #9ca3af;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.muted a:hover {
-  color: #e5e7eb;
-}
-
-.muted-center {
-  text-align: center;
-  width: 100%;
-}
-
-.error {
-  font-size: 12px;
-  color: #f97373;
-  text-align: left;
-}
-
-.linklike {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  font: inherit;
-  cursor: pointer;
-  padding: 0;
-  text-decoration: none !important;
-}
-
-.linklike:hover {
-  color: #e5e7eb;
-}
-
-.link-text {
-  color: #9ca3af;
-  text-decoration: none !important;
-  cursor: pointer;
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  font-size: 12px;
-}
-
-.link-text:hover {
-  color: #e5e7eb;
-}
-
-/* Поле пароля с "глазом" */
-
-.password-field {
-  position: relative;
-}
-
-.password-field input {
-  padding-right: 44px;
-}
-
-.password-field .eye {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 42px;
-  height: 42px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.password-field .eye::before {
-  content: '';
-  position: absolute;
-  width: 18px;
-  height: 10px;
-  border: 2px solid #9ca3af;
-  border-radius: 50% / 60%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.password-field .eye::after {
-  content: '';
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #9ca3af;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* ========================================================================== */
-/* карточки ленты                                                            */
+/* карточки ленты                                                             */
 /* ========================================================================== */
 
 .feed-card {
@@ -922,7 +537,7 @@ body {
 }
 
 /* ========================================================================== */
-/* организации                                                               */
+/* организации                                                                */
 /* ========================================================================== */
 
 .org-list {
@@ -977,22 +592,6 @@ body {
   font-size: 11px;
   padding: 4px 10px;
   cursor: pointer;
-}
-
-/* ========================================================================== */
-/* focus-visible                                                              */
-/* ========================================================================== */
-
-.login-submit:focus-visible,
-.link-text:focus-visible,
-.linklike:focus-visible,
-.login-header-back:focus-visible,
-.password-field .eye:focus-visible,
-.app-header__avatar:focus-visible,
-.app-header__search-input:focus,
-.app-header__search-input:focus-visible {
-  outline: none;
-  box-shadow: none;
 }
 
 /* === LIGHT THEME BASE (минимальный набросок) ============================== */

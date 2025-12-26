@@ -1,6 +1,10 @@
-// src/pages/register/Register.mobile.tsx
+
 
 import React from 'react';
+import '../_shared/auth.mobile.css';
+import './Register.mobile.css';
+
+
 
 // УДАЛЕН импорт PinPad
 
