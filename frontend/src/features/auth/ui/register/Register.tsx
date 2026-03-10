@@ -19,6 +19,7 @@ const Register: React.FC = () => {
     busy,
     phoneAlreadyRegistered,
     telegramBind,
+    telegramAutoChecking,
     canResend,
     leftSec,
     passwordsMismatch,
@@ -38,7 +39,6 @@ const Register: React.FC = () => {
     nextPassword,
     resendCode,
     openTelegramBinding,
-    checkTelegramBinding,
     goLogin,
     goLoginWithPhone,
   } = useRegisterFlow();
@@ -113,20 +113,19 @@ const Register: React.FC = () => {
                   >
                     Открыть Telegram
                   </button>
-                  <button
-                    type="button"
-                    className="link-text"
-                    onClick={checkTelegramBinding}
-                    disabled={busy}
-                  >
-                    Я нажал Start, проверить
-                  </button>
                 </div>
                 {telegramBind.status === 'expired' ? (
                   <div className="register-tg-text">
                     Ссылка устарела. Нажмите «Подтвердить через Telegram» ниже.
                   </div>
-                ) : null}
+                ) : (
+                  <div className="register-tg-text">
+                    {telegramAutoChecking
+                      ? 'После Start подтверждение подхватится автоматически.'
+                      : 'Если Telegram не открылся, нажмите «Открыть Telegram».'
+                    }
+                  </div>
+                )}
               </div>
             )}
 

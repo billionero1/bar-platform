@@ -2,6 +2,7 @@
 import React, {
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -81,12 +82,15 @@ export const useRegisterFlow = () => {
   const [busy, setBusy] = useState(false);
   const [phoneAlreadyRegistered, setPhoneAlreadyRegistered] = useState(false);
   const [telegramBind, setTelegramBind] = useState<TelegramBindState | null>(null);
+  const [telegramAutoChecking, setTelegramAutoChecking] = useState(false);
 
   const { canResend, leftSec, start: startResendTimer } = useResendTimer({
     defaultDelaySec: 30,
   });
 
   const lastVerifyAtRef = useRef<number | null>(null);
+  const telegramPollInFlightRef = useRef(false);
+  const telegramBindResolvedRef = useRef(false);
 
   const apiPhone = useMemo(() => toApiWithPlus(phone), [phone]);
   const dbPhone = useMemo(() => toDbDigits(phone), [phone]);
@@ -104,6 +108,8 @@ export const useRegisterFlow = () => {
     if (err) setErr(null);
     if (phoneAlreadyRegistered) setPhoneAlreadyRegistered(false);
     if (telegramBind) setTelegramBind(null);
+    if (telegramAutoChecking) setTelegramAutoChecking(false);
+    telegramBindResolvedRef.current = false;
   };
 
   const handleCodeChange = (value: string) => {
@@ -137,6 +143,8 @@ export const useRegisterFlow = () => {
     const bind = state || telegramBind;
     const webUrl = String(bind?.bindUrl || '').trim();
     if (!webUrl || typeof window === 'undefined') return;
+    telegramBindResolvedRef.current = false;
+    setTelegramAutoChecking(true);
 
     let username = '';
     let startPayload = `bind_${bind?.token || ''}`;
@@ -186,6 +194,8 @@ export const useRegisterFlow = () => {
     setErr(null);
     setPhoneAlreadyRegistered(false);
     setTelegramBind(null);
+    setTelegramAutoChecking(false);
+    telegramBindResolvedRef.current = false;
 
     const cleanName = name.trim();
     if (!cleanName) return;
@@ -206,7 +216,7 @@ export const useRegisterFlow = () => {
       const bindState = parseTelegramBindState(e);
       if (bindState) {
         setTelegramBind(bindState);
-        setErr('Откройте Telegram, нажмите Start у бота и вернитесь сюда.');
+        setErr(null);
         openTelegramBinding(bindState);
         return;
       }
@@ -313,7 +323,7 @@ export const useRegisterFlow = () => {
       if (bindState) {
         setTelegramBind(bindState);
         setStep('phone');
-        setErr('Откройте Telegram, нажмите Start у бота и вернитесь сюда.');
+        setErr(null);
         openTelegramBinding(bindState);
         return;
       }
@@ -321,44 +331,64 @@ export const useRegisterFlow = () => {
     }
   }, [openTelegramBinding, requestVerifyCode, startResendTimer]);
 
-  const checkTelegramBinding = useCallback(async () => {
-    if (!telegramBind?.token) {
-      setErr('Нажмите «Подтвердить через Telegram», чтобы получить ссылку.');
-      return;
-    }
+  useEffect(() => {
+    if (!telegramAutoChecking) return;
+    if (!telegramBind?.token) return;
+    if (telegramBind.status !== 'pending') return;
 
-    setBusy(true);
-    setErr(null);
-    try {
-      const qs = new URLSearchParams({ token: telegramBind.token });
-      const status = await api<{
-        status: 'pending' | 'bound' | 'expired';
-      }>(`/v1/auth/telegram/bind-status?${qs.toString()}`, {
-        method: 'GET',
-      });
+    let cancelled = false;
 
-      if (status.status === 'bound') {
-        await requestVerifyCode(name.trim());
-        startResendTimer();
-        setTelegramBind(null);
-        setStep('code');
-        return;
+    const checkStatus = async () => {
+      if (cancelled || telegramPollInFlightRef.current || telegramBindResolvedRef.current) return;
+      telegramPollInFlightRef.current = true;
+
+      try {
+        const qs = new URLSearchParams({ token: telegramBind.token });
+        const status = await api<{
+          status: 'pending' | 'bound' | 'expired';
+        }>(`/v1/auth/telegram/bind-status?${qs.toString()}`, {
+          method: 'GET',
+        });
+
+        if (cancelled) return;
+
+        if (status.status === 'bound') {
+          telegramBindResolvedRef.current = true;
+          await requestVerifyCode(name.trim());
+          startResendTimer();
+          setErr(null);
+          setTelegramAutoChecking(false);
+          setTelegramBind(null);
+          setStep('code');
+          return;
+        }
+
+        if (status.status === 'expired') {
+          telegramBindResolvedRef.current = true;
+          setTelegramAutoChecking(false);
+          setTelegramBind((prev) => (prev ? { ...prev, status: 'expired' } : prev));
+          return;
+        }
+      } catch (e: any) {
+        if (cancelled) return;
+        setTelegramAutoChecking(false);
+        setErr(rusify(e));
+      } finally {
+        telegramPollInFlightRef.current = false;
       }
+    };
 
-      if (status.status === 'expired') {
-        setTelegramBind((prev) => (prev ? { ...prev, status: 'expired' } : prev));
-        setErr('Ссылка устарела. Нажмите «Подтвердить через Telegram», чтобы получить новую.');
-        return;
-      }
+    void checkStatus();
+    const timer = window.setInterval(() => {
+      void checkStatus();
+    }, 2500);
 
-      setTelegramBind((prev) => (prev ? { ...prev, status: 'pending' } : prev));
-      setErr('Подтверждение ещё не завершено. Нажмите Start в Telegram и проверьте снова.');
-    } catch (e: any) {
-      setErr(rusify(e));
-    } finally {
-      setBusy(false);
-    }
-  }, [name, requestVerifyCode, startResendTimer, telegramBind]);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      telegramPollInFlightRef.current = false;
+    };
+  }, [name, requestVerifyCode, startResendTimer, telegramAutoChecking, telegramBind]);
 
   return {
     // состояние
@@ -378,6 +408,7 @@ export const useRegisterFlow = () => {
     busy,
     phoneAlreadyRegistered,
     telegramBind,
+    telegramAutoChecking,
     canResend,
     leftSec,
     passwordsMismatch,
@@ -401,7 +432,6 @@ export const useRegisterFlow = () => {
     nextPassword,
     resendCode,
     openTelegramBinding,
-    checkTelegramBinding,
     goLogin,
     goLoginWithPhone,
   };
