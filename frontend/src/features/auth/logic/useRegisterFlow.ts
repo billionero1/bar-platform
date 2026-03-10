@@ -32,6 +32,13 @@ type TelegramBindState = {
   status: 'pending' | 'bound' | 'expired';
 };
 
+function normalizeBotUsername(raw: unknown): string | null {
+  const value = String(raw || '').trim().replace(/^@/, '');
+  if (!value) return null;
+  if (/^(your_|paste_|change_me)/i.test(value)) return null;
+  return `@${value}`;
+}
+
 function parseTelegramBindState(error: any): TelegramBindState | null {
   const code = String(error?.code || '');
   const message = String(error?.message || '');
@@ -48,7 +55,7 @@ function parseTelegramBindState(error: any): TelegramBindState | null {
   return {
     token,
     bindUrl: String((details as any).bind_url || '').trim() || null,
-    botUsername: String((details as any).bot_username || '').trim() || null,
+    botUsername: normalizeBotUsername((details as any).bot_username),
     expiresAt: String((details as any).expires_at || '').trim() || null,
     phoneMasked: String((details as any).phone_masked || '').trim() || null,
     purpose: String((details as any).purpose || 'verify'),
@@ -126,6 +133,45 @@ export const useRegisterFlow = () => {
     });
   }, [apiPhone]);
 
+  const openTelegramBinding = useCallback((state?: TelegramBindState | null) => {
+    const bind = state || telegramBind;
+    const webUrl = String(bind?.bindUrl || '').trim();
+    if (!webUrl || typeof window === 'undefined') return;
+
+    let username = '';
+    let startPayload = `bind_${bind?.token || ''}`;
+
+    try {
+      const parsed = new URL(webUrl);
+      username = parsed.pathname.replace(/^\/+/, '').trim();
+      const queryPayload = String(parsed.searchParams.get('start') || '').trim();
+      if (queryPayload) startPayload = queryPayload;
+    } catch {
+      // ignore parse error and fallback to bot username
+    }
+
+    if (!username && bind?.botUsername) {
+      username = bind.botUsername.replace(/^@/, '');
+    }
+
+    if (!username) {
+      window.location.href = webUrl;
+      return;
+    }
+
+    const appUrl = `tg://resolve?domain=${encodeURIComponent(username)}&start=${encodeURIComponent(startPayload)}`;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!document.hidden) {
+        window.location.href = webUrl;
+      }
+    }, 900);
+
+    const clearFallback = () => window.clearTimeout(fallbackTimer);
+    document.addEventListener('visibilitychange', clearFallback, { once: true });
+    window.addEventListener('pagehide', clearFallback, { once: true });
+    window.location.href = appUrl;
+  }, [telegramBind]);
+
   const handleBackClick = () => {
     if (step === 'phone') {
       goLogin();
@@ -160,6 +206,9 @@ export const useRegisterFlow = () => {
       const bindState = parseTelegramBindState(e);
       if (bindState) {
         setTelegramBind(bindState);
+        setErr('Откройте Telegram, нажмите Start у бота и вернитесь сюда.');
+        openTelegramBinding(bindState);
+        return;
       }
       const msg = rusify(e);
       setErr(msg);
@@ -264,14 +313,17 @@ export const useRegisterFlow = () => {
       if (bindState) {
         setTelegramBind(bindState);
         setStep('phone');
+        setErr('Откройте Telegram, нажмите Start у бота и вернитесь сюда.');
+        openTelegramBinding(bindState);
+        return;
       }
       setErr(rusify(e));
     }
-  }, [requestVerifyCode, startResendTimer]);
+  }, [openTelegramBinding, requestVerifyCode, startResendTimer]);
 
   const checkTelegramBinding = useCallback(async () => {
     if (!telegramBind?.token) {
-      setErr('Ссылка для Telegram не найдена. Нажмите «Продолжить» ещё раз.');
+      setErr('Нажмите «Подтвердить через Telegram», чтобы получить ссылку.');
       return;
     }
 
@@ -295,12 +347,12 @@ export const useRegisterFlow = () => {
 
       if (status.status === 'expired') {
         setTelegramBind((prev) => (prev ? { ...prev, status: 'expired' } : prev));
-        setErr('Ссылка привязки истекла. Нажмите «Продолжить» для новой ссылки.');
+        setErr('Ссылка устарела. Нажмите «Подтвердить через Telegram», чтобы получить новую.');
         return;
       }
 
       setTelegramBind((prev) => (prev ? { ...prev, status: 'pending' } : prev));
-      setErr('Привязка ещё не завершена. Нажмите Start в Telegram и проверьте снова.');
+      setErr('Подтверждение ещё не завершено. Нажмите Start в Telegram и проверьте снова.');
     } catch (e: any) {
       setErr(rusify(e));
     } finally {
@@ -348,6 +400,7 @@ export const useRegisterFlow = () => {
     nextCode,
     nextPassword,
     resendCode,
+    openTelegramBinding,
     checkTelegramBinding,
     goLogin,
     goLoginWithPhone,

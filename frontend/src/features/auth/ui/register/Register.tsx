@@ -37,6 +37,7 @@ const Register: React.FC = () => {
     nextCode,
     nextPassword,
     resendCode,
+    openTelegramBinding,
     checkTelegramBinding,
     goLogin,
     goLoginWithPhone,
@@ -58,7 +59,7 @@ const Register: React.FC = () => {
 
           <p className="login-header-sub">
             {step === 'phone' &&
-              'Укажите имя и номер телефона, затем подтвердите Telegram и получите код.'}
+              'Укажите имя и номер телефона. После нажатия кнопки откроется Telegram для подтверждения.'}
             {step === 'code' &&
               'Введите код из сообщения, чтобы подтвердить номер.'}
             {step === 'password' && 'Придумайте пароль для входа в сервис.'}
@@ -96,26 +97,22 @@ const Register: React.FC = () => {
             )}
 
             {telegramBind && (
-              <div className="muted" style={{ marginTop: 8 }}>
-                <div>
-                  Нужно привязать Telegram для номера {telegramBind.phoneMasked || phone}.
+              <div className="register-tg-box">
+                <div className="register-tg-title">
+                  Подтвердите номер в Telegram.
                 </div>
-                {telegramBind.botUsername ? (
-                  <div style={{ marginTop: 4 }}>
-                    Бот привязки: <b>{telegramBind.botUsername}</b>
-                  </div>
-                ) : null}
-                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {telegramBind.bindUrl ? (
-                    <a
-                      className="link-text"
-                      href={telegramBind.bindUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Открыть Telegram и нажать Start
-                    </a>
-                  ) : null}
+                <div className="register-tg-text">
+                  Нажмите Start у бота и вернитесь в регистрацию.
+                </div>
+                <div className="register-tg-actions">
+                  <button
+                    type="button"
+                    className="link-text"
+                    onClick={() => openTelegramBinding()}
+                    disabled={busy}
+                  >
+                    Открыть Telegram
+                  </button>
                   <button
                     type="button"
                     className="link-text"
@@ -126,8 +123,8 @@ const Register: React.FC = () => {
                   </button>
                 </div>
                 {telegramBind.status === 'expired' ? (
-                  <div style={{ marginTop: 4 }}>
-                    Ссылка истекла. Нажмите «Продолжить», чтобы получить новую.
+                  <div className="register-tg-text">
+                    Ссылка устарела. Нажмите «Подтвердить через Telegram» ниже.
                   </div>
                 ) : null}
               </div>
@@ -136,7 +133,7 @@ const Register: React.FC = () => {
             {err && <div className="error">{err}</div>}
 
             <button type="submit" className="login-submit" disabled={!canSubmitPhone}>
-              Продолжить
+              Подтвердить через Telegram
             </button>
           </form>
         )}
