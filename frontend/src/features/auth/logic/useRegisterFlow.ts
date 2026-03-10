@@ -91,6 +91,7 @@ export const useRegisterFlow = () => {
   const lastVerifyAtRef = useRef<number | null>(null);
   const telegramPollInFlightRef = useRef(false);
   const telegramBindResolvedRef = useRef(false);
+  const telegramWebWindowRef = useRef<Window | null>(null);
 
   const apiPhone = useMemo(() => toApiWithPlus(phone), [phone]);
   const dbPhone = useMemo(() => toDbDigits(phone), [phone]);
@@ -109,6 +110,7 @@ export const useRegisterFlow = () => {
     if (phoneAlreadyRegistered) setPhoneAlreadyRegistered(false);
     if (telegramBind) setTelegramBind(null);
     if (telegramAutoChecking) setTelegramAutoChecking(false);
+    closeTelegramWebWindow();
     telegramBindResolvedRef.current = false;
   };
 
@@ -139,12 +141,25 @@ export const useRegisterFlow = () => {
     });
   }, [apiPhone]);
 
+  const closeTelegramWebWindow = useCallback(() => {
+    const popup = telegramWebWindowRef.current;
+    if (popup && !popup.closed) {
+      try {
+        popup.close();
+      } catch {
+        // ignore popup close errors
+      }
+    }
+    telegramWebWindowRef.current = null;
+  }, []);
+
   const openTelegramBinding = useCallback((state?: TelegramBindState | null) => {
     const bind = state || telegramBind;
     const webUrl = String(bind?.bindUrl || '').trim();
     if (!webUrl || typeof window === 'undefined') return;
     telegramBindResolvedRef.current = false;
     setTelegramAutoChecking(true);
+    setErr(null);
 
     let username = '';
     let startPayload = `bind_${bind?.token || ''}`;
@@ -163,21 +178,48 @@ export const useRegisterFlow = () => {
     }
 
     if (!username) {
-      window.location.href = webUrl;
+      const popup = window.open(webUrl, '_blank');
+      if (popup) {
+        telegramWebWindowRef.current = popup;
+      } else {
+        setErr('Не удалось открыть Telegram. Разрешите всплывающие окна.');
+      }
       return;
     }
 
     const appUrl = `tg://resolve?domain=${encodeURIComponent(username)}&start=${encodeURIComponent(startPayload)}`;
-    const fallbackTimer = window.setTimeout(() => {
-      if (!document.hidden) {
-        window.location.href = webUrl;
-      }
-    }, 900);
+    let switchedAway = false;
 
-    const clearFallback = () => window.clearTimeout(fallbackTimer);
-    document.addEventListener('visibilitychange', clearFallback, { once: true });
-    window.addEventListener('pagehide', clearFallback, { once: true });
-    window.location.href = appUrl;
+    const onBlur = () => {
+      switchedAway = true;
+    };
+    const onVisibility = () => {
+      if (document.hidden) switchedAway = true;
+    };
+    window.addEventListener('blur', onBlur, true);
+    document.addEventListener('visibilitychange', onVisibility, true);
+
+    const frame = document.createElement('iframe');
+    frame.style.display = 'none';
+    frame.src = appUrl;
+    document.body.appendChild(frame);
+
+    window.setTimeout(() => {
+      frame.remove();
+    }, 1500);
+
+    window.setTimeout(() => {
+      window.removeEventListener('blur', onBlur, true);
+      document.removeEventListener('visibilitychange', onVisibility, true);
+
+      if (switchedAway || document.hidden) return;
+      const popup = window.open(webUrl, '_blank');
+      if (popup) {
+        telegramWebWindowRef.current = popup;
+      } else {
+        setErr('Не удалось открыть Telegram. Разрешите всплывающие окна.');
+      }
+    }, 1200);
   }, [telegramBind]);
 
   const handleBackClick = () => {
@@ -195,6 +237,7 @@ export const useRegisterFlow = () => {
     setPhoneAlreadyRegistered(false);
     setTelegramBind(null);
     setTelegramAutoChecking(false);
+    closeTelegramWebWindow();
     telegramBindResolvedRef.current = false;
 
     const cleanName = name.trim();
@@ -216,8 +259,7 @@ export const useRegisterFlow = () => {
       const bindState = parseTelegramBindState(e);
       if (bindState) {
         setTelegramBind(bindState);
-        setErr(null);
-        openTelegramBinding(bindState);
+        setErr('Нажмите «Открыть Telegram» и подтвердите номер через Start.');
         return;
       }
       const msg = rusify(e);
@@ -323,13 +365,12 @@ export const useRegisterFlow = () => {
       if (bindState) {
         setTelegramBind(bindState);
         setStep('phone');
-        setErr(null);
-        openTelegramBinding(bindState);
+        setErr('Нажмите «Открыть Telegram» и подтвердите номер через Start.');
         return;
       }
       setErr(rusify(e));
     }
-  }, [openTelegramBinding, requestVerifyCode, startResendTimer]);
+  }, [requestVerifyCode, startResendTimer]);
 
   useEffect(() => {
     if (!telegramAutoChecking) return;
@@ -358,6 +399,7 @@ export const useRegisterFlow = () => {
           startResendTimer();
           setErr(null);
           setTelegramAutoChecking(false);
+          closeTelegramWebWindow();
           setTelegramBind(null);
           setStep('code');
           return;
@@ -366,12 +408,14 @@ export const useRegisterFlow = () => {
         if (status.status === 'expired') {
           telegramBindResolvedRef.current = true;
           setTelegramAutoChecking(false);
+          closeTelegramWebWindow();
           setTelegramBind((prev) => (prev ? { ...prev, status: 'expired' } : prev));
           return;
         }
       } catch (e: any) {
         if (cancelled) return;
         setTelegramAutoChecking(false);
+        closeTelegramWebWindow();
         setErr(rusify(e));
       } finally {
         telegramPollInFlightRef.current = false;
@@ -388,7 +432,11 @@ export const useRegisterFlow = () => {
       window.clearInterval(timer);
       telegramPollInFlightRef.current = false;
     };
-  }, [name, requestVerifyCode, startResendTimer, telegramAutoChecking, telegramBind]);
+  }, [closeTelegramWebWindow, name, requestVerifyCode, startResendTimer, telegramAutoChecking, telegramBind]);
+
+  useEffect(() => () => {
+    closeTelegramWebWindow();
+  }, [closeTelegramWebWindow]);
 
   return {
     // состояние
