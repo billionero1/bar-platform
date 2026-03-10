@@ -3,11 +3,15 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
-import bcrypt from 'bcrypt';
-import { query as db } from '../../db.js';
-import { COOKIE_NAME } from '../../config.js';
+import bcrypt from 'bcryptjs';
+import { query as db, pool } from '../../db.js';
+import { COOKIE_NAME, JWT_SECRET } from '../../config.js';
 import { loadUserData } from '../../utils/sessionUtils.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
+import { hasPermission, listPermissionsForRole } from '../../utils/permissions.js';
+import { consumeRateLimit } from '../../utils/rateLimit.js';
+import { deliverOtp } from '../../services/otpDelivery.js';
+import { seedDefaultTrainingContent } from '../../utils/trainingSeed.js';
 
 // Secure compare для защиты от timing attacks
 function secureCompare(a, b) {
@@ -23,7 +27,6 @@ function secureCompare(a, b) {
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 const isProd = process.env.NODE_ENV === 'production';
 
 // === Простой double-submit CSRF ===
@@ -90,6 +93,10 @@ function parseSessionDays(raw) {
 const SESSION_DAYS_NUM = parseSessionDays(process.env.REFRESH_TTL_DAYS);
 const SESSION_PG_INTERVAL = `${SESSION_DAYS_NUM} days`;
 const SESSION_MAX_AGE_MS  = SESSION_DAYS_NUM * 24 * 60 * 60 * 1000;
+const PHONE_VERIFICATION_TTL_MINUTES = Number(
+  process.env.PHONE_VERIFICATION_TTL_MINUTES || 60
+);
+const PHONE_VERIFICATION_INTERVAL = `${Math.max(1, PHONE_VERIFICATION_TTL_MINUTES)} minutes`;
 
 function cookieOpts() {
   return {
@@ -120,40 +127,21 @@ function validatePassword(password) {
   return null;
 }
 
-// --- simple in-memory rate limit ---
-const RATE = new Map();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of RATE.entries()) {
-    if (bucket.expires < now) {
-      RATE.delete(key);
-    }
-  }
-}, 10 * 60 * 1000);
-
-function cleanupIfNeeded() {
-  if (RATE.size > 10000) {
-    const now = Date.now();
-    for (const [key, bucket] of RATE.entries()) {
-      if (bucket.expires < now) {
-        RATE.delete(key);
-        if (RATE.size <= 8000) break;
-      }
-    }
-  }
+function maskPhone(phone) {
+  const p = String(phone || '');
+  if (p.length < 11) return p;
+  return `+${p[0]} ${p[1]}** ***-${p[7]}${p[8]}-${p[9]}${p[10]}`;
 }
 
-function isLimited(key, limit = 8, windowMs = 5 * 60 * 1000) {
-  cleanupIfNeeded();
-  const now = Date.now();
-  let bucket = RATE.get(key);
-  if (!bucket || bucket.expires < now) {
-    bucket = { count: 0, expires: now + windowMs };
-    RATE.set(key, bucket);
-  }
-  bucket.count += 1;
-  return bucket.count > limit;
+function normalizeInviteToken(raw) {
+  const token = String(raw || '').trim();
+  return token.length >= 24 ? token : '';
+}
+
+async function isLimited(key, limit = 8, windowMs = 5 * 60 * 1000) {
+  const windowSeconds = Math.max(1, Math.round(windowMs / 1000));
+  const result = await consumeRateLimit(key, limit, windowSeconds);
+  return result.limited;
 }
 
 async function loadPrimaryMembership(userId) {
@@ -174,6 +162,32 @@ async function loadPrimaryMembership(userId) {
 
 function signAccess(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: process.env.ACCESS_TTL || '15m' });
+}
+
+function buildPayload(user, membership) {
+  const role = membership?.role || null;
+  return {
+    sub: user.id,
+    phone: user.phone,
+    name: user.name,
+    role,
+    establishment_id: membership?.establishment_id || null,
+    establishment_name: membership?.establishment_name || null,
+    permissions: listPermissionsForRole(role),
+  };
+}
+
+async function createSessionCookie(req, res, userId) {
+  const sidPlain = crypto.randomUUID() + ':' + crypto.randomBytes(12).toString('hex');
+  const sidHash = sha256(sidPlain);
+
+  await db(
+    `INSERT INTO sessions(user_id, sid_hash, ua, ip, expires_at, last_activity_at)
+     VALUES ($1,$2,$3,$4, now() + $5::interval, now())`,
+    [userId, sidHash, req.headers['user-agent'] || null, req.ip || null, SESSION_PG_INTERVAL]
+  );
+
+  res.cookie(COOKIE_NAME, sidPlain, cookieOpts());
 }
 
 // ===================================================================
@@ -322,6 +336,20 @@ router.post('/request-verify', async (req, res) => {
       return res.status(400).json({ error: 'phone_already_registered' });
     }
 
+    const exhausted = await db(
+      `SELECT 1
+         FROM passcodes
+        WHERE phone=$1
+          AND purpose='verify'
+          AND expires_at > now()
+          AND attempts_left <= 0
+        LIMIT 1`,
+      [p]
+    );
+    if (exhausted.rowCount) {
+      return res.status(429).json({ error: 'too_many_attempts' });
+    }
+
     // rate-limit по запросам SMS-кода
     const recent = await db(
       `SELECT 1 FROM passcodes
@@ -342,10 +370,37 @@ router.post('/request-verify', async (req, res) => {
     // создаём SMS-код
     const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
     await db(
+      `DELETE FROM phone_verifications
+        WHERE phone=$1 AND purpose='register'`,
+      [p]
+    );
+    const codeIns = await db(
       `INSERT INTO passcodes(phone, code, purpose, attempts_left, expires_at)
-       VALUES ($1,$2,'verify',3, now() + interval '15 minutes')`,
+       VALUES ($1,$2,'verify',3, now() + interval '15 minutes')
+       RETURNING id`,
       [p, code]
     );
+    const passcodeId = codeIns.rows[0].id;
+
+    try {
+      await deliverOtp({
+        phone: p,
+        code,
+        purpose: 'verify',
+      });
+    } catch (deliveryError) {
+      await db(`DELETE FROM passcodes WHERE id=$1`, [passcodeId]).catch(() => {});
+      await logAuthEvent('verify_sms_requested', req, {
+        phone: p,
+        success: false,
+        details: {
+          purpose: 'verify',
+          reason: 'delivery_failed',
+        },
+      });
+      console.error('request-verify delivery error', deliveryError);
+      return res.status(503).json({ error: 'otp_delivery_failed' });
+    }
 
     await logAuthEvent('verify_sms_requested', req, {
       phone: p,
@@ -353,7 +408,6 @@ router.post('/request-verify', async (req, res) => {
       details: { purpose: 'verify' },
     });
 
-    if (!isProd) console.log(`[VERIFY] ${p} -> ${code}`);
     return res.json({ ok: true });
   } catch (e) {
     console.error('request-verify error', e);
@@ -367,10 +421,27 @@ router.post('/verify-code', async (req, res) => {
     const code = (req.body || {}).code;
     if (!p || !code) return res.status(400).json({ error: 'phone_and_code_required' });
 
+    const exhausted = await db(
+      `SELECT 1
+         FROM passcodes
+        WHERE phone=$1
+          AND purpose='verify'
+          AND expires_at > now()
+          AND attempts_left <= 0
+        LIMIT 1`,
+      [p]
+    );
+    if (exhausted.rowCount) {
+      return res.status(429).json({ error: 'too_many_attempts' });
+    }
+
     const q = await db(
       `SELECT id, code, attempts_left
          FROM passcodes
-        WHERE phone=$1 AND purpose='verify' AND expires_at > now()
+        WHERE phone=$1
+          AND purpose='verify'
+          AND expires_at > now()
+          AND attempts_left > 0
         ORDER BY id DESC
         LIMIT 1`,
       [p]
@@ -388,6 +459,13 @@ router.post('/verify-code', async (req, res) => {
     }
 
     await db(`DELETE FROM passcodes WHERE id=$1`, [row.id]);
+    await db(
+      `INSERT INTO phone_verifications(phone, purpose, expires_at)
+       VALUES ($1, 'register', now() + $2::interval)
+       ON CONFLICT (phone, purpose)
+       DO UPDATE SET expires_at = EXCLUDED.expires_at, created_at = now()`,
+      [p, PHONE_VERIFICATION_INTERVAL]
+    );
     return res.json({ ok: true });
   } catch (e) {
     console.error('verify-code error', e);
@@ -411,6 +489,20 @@ router.post('/request-reset', async (req, res) => {
     const user = await db(`SELECT id FROM users WHERE phone=$1 LIMIT 1`, [p]);
     if (!user.rowCount) return res.status(404).json({ error: 'not_found' }); // не логируем (anti-enumeration)
 
+    const exhausted = await db(
+      `SELECT 1
+         FROM passcodes
+        WHERE phone=$1
+          AND purpose='reset'
+          AND expires_at > now()
+          AND attempts_left <= 0
+        LIMIT 1`,
+      [p]
+    );
+    if (exhausted.rowCount) {
+      return res.status(429).json({ error: 'too_many_attempts' });
+    }
+
     const recent = await db(
       `SELECT 1 FROM passcodes
          WHERE phone=$1 AND purpose='reset'
@@ -429,11 +521,34 @@ router.post('/request-reset', async (req, res) => {
     }
 
     const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
-    await db(
+    const codeIns = await db(
       `INSERT INTO passcodes(phone, code, purpose, attempts_left, expires_at)
-       VALUES ($1,$2,'reset',3, now() + interval '15 minutes')`,
+       VALUES ($1,$2,'reset',3, now() + interval '15 minutes')
+       RETURNING id`,
       [p, code]
     );
+    const passcodeId = codeIns.rows[0].id;
+
+    try {
+      await deliverOtp({
+        phone: p,
+        code,
+        purpose: 'reset',
+      });
+    } catch (deliveryError) {
+      await db(`DELETE FROM passcodes WHERE id=$1`, [passcodeId]).catch(() => {});
+      await logAuthEvent('reset_sms_requested', req, {
+        userId: user.rows[0].id,
+        phone: p,
+        success: false,
+        details: {
+          purpose: 'reset',
+          reason: 'delivery_failed',
+        },
+      });
+      console.error('request-reset delivery error', deliveryError);
+      return res.status(503).json({ error: 'otp_delivery_failed' });
+    }
 
     await logAuthEvent('reset_sms_requested', req, {
       userId: user.rows[0].id,
@@ -442,7 +557,6 @@ router.post('/request-reset', async (req, res) => {
       details: { purpose: 'reset' },
     });
 
-    if (!isProd) console.log(`[RESET] ${p} -> ${code}`);
     return res.json({ ok: true });
   } catch (e) {
     console.error('request-reset error', e);
@@ -474,10 +588,27 @@ router.post('/reset-password', async (req, res) => {
     }
     const user = uq.rows[0];
 
+    const exhausted = await db(
+      `SELECT 1
+         FROM passcodes
+        WHERE phone=$1
+          AND purpose='reset'
+          AND expires_at > now()
+          AND attempts_left <= 0
+        LIMIT 1`,
+      [p]
+    );
+    if (exhausted.rowCount) {
+      return res.status(429).json({ error: 'too_many_attempts' });
+    }
+
     const q = await db(
       `SELECT id, code, attempts_left
          FROM passcodes
-        WHERE phone=$1 AND purpose='reset' AND expires_at > now()
+        WHERE phone=$1
+          AND purpose='reset'
+          AND expires_at > now()
+          AND attempts_left > 0
         ORDER BY id DESC
         LIMIT 1`,
       [p]
@@ -515,26 +646,9 @@ router.post('/reset-password', async (req, res) => {
     await db(`DELETE FROM passcodes WHERE id=$1`, [row.id]);
 
     const mem = await loadPrimaryMembership(user.id);
-    const payload = {
-      sub: user.id,
-      phone: user.phone,
-      name: user.name,
-      role: mem?.role || null,
-      establishment_id: mem?.establishment_id || null,
-      establishment_name: mem?.establishment_name || null,
-    };
+    const payload = buildPayload(user, mem);
     const access = signAccess(payload);
-
-    const sidPlain = crypto.randomUUID() + ':' + crypto.randomBytes(12).toString('hex');
-    const sidHash  = sha256(sidPlain);
-
-    await db(
-      `INSERT INTO sessions(user_id, sid_hash, ua, ip, expires_at, last_activity_at)
-       VALUES ($1,$2,$3,$4, now() + $5::interval, now())`,
-      [user.id, sidHash, req.headers['user-agent'] || null, req.ip || null, SESSION_PG_INTERVAL]
-    );
-
-    res.cookie(COOKIE_NAME, sidPlain, cookieOpts());
+    await createSessionCookie(req, res, user.id);
 
     await logAuthEvent('reset_success', req, {
       userId: user.id,
@@ -570,8 +684,21 @@ router.post('/register-user', async (req, res) => {
       });
     }
 
+    const verified = await db(
+      `SELECT 1
+         FROM phone_verifications
+        WHERE phone=$1
+          AND purpose='register'
+          AND expires_at > now()
+        LIMIT 1`,
+      [phone]
+    );
+    if (!verified.rowCount) {
+      return res.status(403).json({ error: 'phone_not_verified' });
+    }
+
     const rlKey = `register:${req.ip || 'ip'}:${phone}`;
-    if (isLimited(rlKey, 5, 60 * 60 * 1000)) {
+    if (await isLimited(rlKey, 5, 60 * 60 * 1000)) {
       // rate limit не логируем (чтобы не спамить)
       return res.status(429).json({ error: 'too_many_requests' });
     }
@@ -593,26 +720,14 @@ router.post('/register-user', async (req, res) => {
     const u = ins.rows[0];
 
     const mem = await loadPrimaryMembership(u.id);
-    const payload = {
-      sub: u.id,
-      phone: u.phone,
-      name: u.name,
-      role: mem?.role || null,
-      establishment_id: mem?.establishment_id || null,
-      establishment_name: mem?.establishment_name || null,
-    };
+    const payload = buildPayload(u, mem);
     const access = signAccess(payload);
-
-    const sidPlain = crypto.randomUUID() + ':' + crypto.randomBytes(12).toString('hex');
-    const sidHash  = sha256(sidPlain);
-
+    await createSessionCookie(req, res, u.id);
     await db(
-      `INSERT INTO sessions(user_id, sid_hash, ua, ip, expires_at, last_activity_at)
-       VALUES ($1,$2,$3,$4, now() + $5::interval, now())`,
-      [u.id, sidHash, req.headers['user-agent'] || null, req.ip || null, SESSION_PG_INTERVAL]
+      `DELETE FROM phone_verifications
+        WHERE phone=$1 AND purpose='register'`,
+      [phone]
     );
-
-    res.cookie(COOKIE_NAME, sidPlain, cookieOpts());
 
     await logAuthEvent('register_success', req, {
       userId: u.id,
@@ -627,9 +742,181 @@ router.post('/register-user', async (req, res) => {
   }
 });
 
+// === Invite onboarding ===
+router.get('/invite/:token', async (req, res) => {
+  try {
+    const token = normalizeInviteToken(req.params.token);
+    if (!token) return res.status(400).json({ error: 'invalid_invite_token' });
+
+    const tokenHash = sha256(token);
+    const q = await db(
+      `SELECT i.id, i.invited_phone, i.invited_name, i.invited_surname, i.role,
+              i.expires_at, i.accepted_at, i.revoked_at,
+              e.id AS establishment_id, e.name AS establishment_name
+         FROM team_invitations i
+         JOIN establishments e ON e.id = i.establishment_id
+        WHERE i.token_hash=$1
+        LIMIT 1`,
+      [tokenHash]
+    );
+    if (!q.rowCount) return res.status(404).json({ error: 'invite_not_found' });
+
+    const invite = q.rows[0];
+    const expired = new Date(invite.expires_at) <= new Date();
+    if (invite.revoked_at || invite.accepted_at || expired) {
+      return res.status(410).json({ error: 'invite_expired' });
+    }
+
+    return res.json({
+      id: invite.id,
+      role: invite.role,
+      invited_name: invite.invited_name,
+      invited_surname: invite.invited_surname,
+      invited_phone_masked: maskPhone(invite.invited_phone),
+      establishment_id: invite.establishment_id,
+      establishment_name: invite.establishment_name,
+      expires_at: invite.expires_at,
+    });
+  } catch (e) {
+    console.error('invite.get error', e);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+router.post('/invite/:token/accept', async (req, res) => {
+  const token = normalizeInviteToken(req.params.token);
+  if (!token) return res.status(400).json({ error: 'invalid_invite_token' });
+
+  const client = await pool.connect();
+  try {
+    const password = String(req.body?.password || '');
+    const nameFromBody = String(req.body?.name || '').trim();
+    const surnameFromBody = String(req.body?.surname || '').trim();
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({
+        error: passwordError,
+        message: 'Password must be at least 8 characters with uppercase, lowercase and digit'
+      });
+    }
+
+    await client.query('BEGIN');
+
+    const tokenHash = sha256(token);
+    const q = await client.query(
+      `SELECT i.id, i.establishment_id, i.invited_phone, i.invited_name, i.invited_surname, i.role,
+              i.expires_at, i.accepted_at, i.revoked_at, e.name AS establishment_name
+         FROM team_invitations i
+         JOIN establishments e ON e.id = i.establishment_id
+        WHERE i.token_hash=$1
+        LIMIT 1
+        FOR UPDATE`,
+      [tokenHash]
+    );
+    if (!q.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'invite_not_found' });
+    }
+
+    const invite = q.rows[0];
+    const expired = new Date(invite.expires_at) <= new Date();
+    if (invite.revoked_at || invite.accepted_at || expired) {
+      await client.query('ROLLBACK');
+      return res.status(410).json({ error: 'invite_expired' });
+    }
+
+    const safeName = nameFromBody || String(invite.invited_name || '').trim() || 'Сотрудник';
+    const safeSurname = surnameFromBody || String(invite.invited_surname || '').trim() || null;
+    const exists = await client.query(
+      `SELECT id, phone, name, surname, password_hash
+         FROM users
+        WHERE phone=$1
+        LIMIT 1`,
+      [invite.invited_phone]
+    );
+
+    let user;
+    if (exists.rowCount) {
+      const existingUser = exists.rows[0];
+      const passwordOk = existingUser.password_hash
+        ? await bcrypt.compare(password, existingUser.password_hash)
+        : false;
+
+      if (!passwordOk) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'account_exists_use_login' });
+      }
+
+      await client.query(
+        `UPDATE users
+            SET name = COALESCE(NULLIF($1, ''), name),
+                surname = COALESCE(NULLIF($2, ''), surname)
+          WHERE id=$3`,
+        [safeName, safeSurname || '', existingUser.id]
+      );
+      user = {
+        id: existingUser.id,
+        phone: existingUser.phone,
+        name: safeName || existingUser.name,
+      };
+    } else {
+      const passHash = await bcrypt.hash(password, 10);
+      const userIns = await client.query(
+        `INSERT INTO users(phone, name, surname, password_hash, is_admin)
+         VALUES ($1,$2,$3,$4,false)
+         RETURNING id, phone, name`,
+        [invite.invited_phone, safeName, safeSurname, passHash]
+      );
+      user = userIns.rows[0];
+    }
+
+    await client.query(
+      `INSERT INTO memberships(user_id, establishment_id, role)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (user_id, establishment_id)
+       DO UPDATE SET role = EXCLUDED.role, revoked_at = NULL`,
+      [user.id, invite.establishment_id, invite.role]
+    );
+
+    await client.query(
+      `UPDATE team_invitations
+          SET accepted_at = now(), accepted_user_id = $2
+        WHERE id = $1`,
+      [invite.id, user.id]
+    );
+
+    await client.query('COMMIT');
+
+    const membership = {
+      role: invite.role,
+      establishment_id: invite.establishment_id,
+      establishment_name: invite.establishment_name,
+    };
+    const payload = buildPayload(user, membership);
+    const access = signAccess(payload);
+    await createSessionCookie(req, res, user.id);
+
+    return res.json({ ok: true, user: payload, access });
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore rollback errors
+    }
+    console.error('invite.accept error', e);
+    return res.status(500).json({ error: 'internal_error' });
+  } finally {
+    client.release();
+  }
+});
+
 // === Создание заведения ===
 router.post('/establishments', requireAuth, async (req, res) => {
   try {
+    if (!hasPermission(req.user, 'establishment:create')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
     const { name } = req.body || {};
     const trimmedName = String(name || '').trim();
 
@@ -650,6 +937,7 @@ router.post('/establishments', requireAuth, async (req, res) => {
        VALUES ($1, $2, 'manager')`,
       [req.userId, est.id]
     );
+    await seedDefaultTrainingContent(est.id, req.userId);
 
     return res.status(201).json({
       ok: true,
@@ -683,7 +971,7 @@ router.post('/login-password', async (req, res) => {
 
     const phoneNormForKey = normPhone(phoneRaw) || 'invalid';
     const rlKey = `login:${req.ip || 'ip'}:${phoneNormForKey}`;
-    if (isLimited(rlKey, 10, 10 * 60 * 1000)) {
+    if (await isLimited(rlKey, 10, 10 * 60 * 1000)) {
       // rate limit не логируем (чтобы не спамить)
       return res.status(429).json({ error: 'too_many_requests' });
     }
@@ -730,28 +1018,10 @@ router.post('/login-password', async (req, res) => {
 
     const membership = await loadPrimaryMembership(u.id);
 
-    const payload = {
-      sub: u.id,
-      phone: u.phone,
-      name: u.name,
-      role: membership?.role || null,
-      establishment_id: membership?.establishment_id || null,
-      establishment_name: membership?.establishment_name || null,
-    };
+    const payload = buildPayload(u, membership);
 
     const access = signAccess(payload);
-
-    const sidPlain =
-      crypto.randomUUID() + ':' + crypto.randomBytes(12).toString('hex');
-    const sidHash = sha256(sidPlain);
-
-    await db(
-      `INSERT INTO sessions (user_id, sid_hash, ua, ip, expires_at, last_activity_at)
-      VALUES ($1, $2, $3, $4, now() + $5::interval, now())`,
-      [u.id, sidHash, req.headers['user-agent'] || null, req.ip || null, SESSION_PG_INTERVAL]
-    );
-
-    res.cookie(COOKIE_NAME, sidPlain, cookieOpts());
+    await createSessionCookie(req, res, u.id);
 
     await logAuthEvent('login_success', req, {
       userId: u.id,

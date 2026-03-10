@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, setAuthHandlers } from './shared/api';
 
@@ -21,6 +21,8 @@ export type UserPayload = {
 
   establishment_name: string | null;
 
+  permissions?: string[];
+
 };
 
 
@@ -39,7 +41,7 @@ type AuthCtx = {
 
   isCsrfReady: boolean;
 
-  checkSession: (opts?: { silent?: boolean }) => Promise<void>;
+  checkSession: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
 
   loginPassword: (p: { phone: string; password: string }) => Promise<void>;
 
@@ -85,11 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
 
-  const checkSession = useCallback(async (opts?: { silent?: boolean }) => {
+  const checkSession = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
 
     const now = Date.now();
 
-    if (now - lastCheckRef.current < 1000) return;
+    if (!opts?.force && now - lastCheckRef.current < 1000) return;
 
     lastCheckRef.current = now;
 
@@ -288,3 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 
 };
+
+export function useAuth() {
+  return useContext(AuthContext);
+}

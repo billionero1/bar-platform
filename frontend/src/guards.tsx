@@ -7,13 +7,10 @@ import { AuthContext } from './AuthContext';
  * Доступ только для авторизованных (есть серверная сессия).
  */
 export const RequireAuth: React.FC = () => {
-  const { loading, hasSession, isCsrfReady } = useContext(AuthContext);
+  const { loading, hasSession } = useContext(AuthContext);
 
-  // Показываем null во время загрузки
   if (loading) return null;
 
-  // Если CSRF не готов, но сессия есть - все равно пускаем
-  // CSRF ошибки будут обработаны на уровне API
   if (!hasSession) {
     return <Navigate to="/login" replace />;
   }
@@ -30,7 +27,7 @@ export const OnlyGuests: React.FC = () => {
   if (loading) return null;
 
   if (hasSession) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/workspace" replace />;
   }
 
   return <Outlet />;

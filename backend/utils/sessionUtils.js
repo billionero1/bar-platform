@@ -1,5 +1,6 @@
 // backend/utils/sessionUtils.js
 import { query as db } from '../db.js';
+import { listPermissionsForRole } from './permissions.js';
 
 /**
  * Проверка sid_hash в таблице sessions.
@@ -88,13 +89,16 @@ export async function loadUserData(userId) {
 
     const membership = mem.rows[0] || {};
 
+    const role = membership.role || null;
+
     return {
       sub: user.id,
       phone: user.phone,
       name: user.name,
-      role: membership.role || null,
+      role,
       establishment_id: membership.establishment_id || null,
       establishment_name: membership.establishment_name || null,
+      permissions: listPermissionsForRole(role),
     };
   } catch (error) {
     console.error('[USER] loadUserData failed:', error);

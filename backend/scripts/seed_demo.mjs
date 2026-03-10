@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import pg from 'pg';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 const {
   PGHOST = '127.0.0.1',
@@ -50,11 +50,57 @@ async function seed() {
     );
     const userId = userRows[0].id;
 
+    const staffPasswordHash = await bcrypt.hash('staff123A', 10);
+    const { rows: staffRows } = await client.query(
+      `INSERT INTO users(phone, name, surname, is_admin, password_hash)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING id, phone, name`,
+      ['79250000001', 'Бармен', 'Смена', false, staffPasswordHash]
+    );
+    const staffId = staffRows[0].id;
+
     // 3) Роль менеджера
     await client.query(
       `INSERT INTO memberships(user_id, establishment_id, role)
        VALUES ($1,$2,'manager') ON CONFLICT DO NOTHING`,
       [userId, estId]
+    );
+    await client.query(
+      `INSERT INTO memberships(user_id, establishment_id, role)
+       VALUES ($1,$2,'staff') ON CONFLICT DO NOTHING`,
+      [staffId, estId]
+    );
+
+    await client.query(
+      `INSERT INTO learning_topics(establishment_id, category, title, summary, bullets, position, created_by)
+       VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)`,
+      [
+        estId,
+        'Стандарты',
+        'Базовый onboarding смены',
+        'Ключевые шаги открытия барной станции и санитарных проверок.',
+        JSON.stringify([
+          'Проверка льда и стекла перед сменой',
+          'Маркировка префабов и контроль FIFO',
+          'Проверка чистоты станции до сервиса',
+        ]),
+        10,
+        userId,
+      ]
+    );
+
+    await client.query(
+      `INSERT INTO quiz_questions(establishment_id, question, options, correct_option, hint, position, created_by)
+       VALUES ($1,$2,$3::jsonb,$4,$5,$6,$7)`,
+      [
+        estId,
+        'Какой метод чаще всего применяют для Manhattan?',
+        JSON.stringify(['Shake', 'Stir', 'Build', 'Blend']),
+        1,
+        'Spirit-forward коктейли без сильной аэрации обычно stir.',
+        10,
+        userId,
+      ]
     );
 
     // 4) Ингредиенты
@@ -114,6 +160,57 @@ async function seed() {
       [prepMixId, prepSyrId]
     );
 
+    // 7) Техкарта коктейля
+    const { rows: cocktailRows } = await client.query(
+      `INSERT INTO cocktails(
+        establishment_id, title, category, output_value, output_unit, garnish, serving, method, photo_url, notes
+      )
+      VALUES (
+        $1, 'Облепиховый сауэр', 'cocktail', 0.16, 'л',
+        'Долька апельсина', 'Олд-фэшн + лед', 'Шейк', '',
+        'Демо-карта для проверки калькуляции и интерфейса'
+      )
+      RETURNING id`,
+      [estId]
+    );
+    const cocktailId = cocktailRows[0].id;
+
+    await client.query(
+      `INSERT INTO cocktail_components(cocktail_id, preparation_id, amount, unit)
+       VALUES ($1, $2, 0.09, 'л')`,
+      [cocktailId, prepMixId]
+    );
+
+    await client.query(
+      `INSERT INTO cocktail_components(cocktail_id, ingredient_id, amount, unit)
+       VALUES ($1, $2, 0.05, 'л')`,
+      [cocktailId, idByName['Вода']]
+    );
+
+    // 8) Пример служебной заявки
+    await client.query(
+      `INSERT INTO operation_requests(establishment_id, created_by, kind, title, details, status)
+       VALUES (
+         $1,
+         $2,
+         'supply',
+         'Пополнить сиропы и цитрус',
+         $3::jsonb,
+         'submitted'
+       )`,
+      [
+        estId,
+        staffId,
+        JSON.stringify({
+          items: [
+            { name: 'Сахар', qty: 5, unit: 'кг' },
+            { name: 'Лайм', qty: 30, unit: 'шт' },
+          ],
+          comment: 'На 3 смены вперед',
+        }),
+      ]
+    );
+
     await client.query('COMMIT');
 
     console.log('✅ Seed OK');
@@ -121,6 +218,8 @@ async function seed() {
       establishment_id: estId,
       manager_phone: '79250000000',
       manager_password: 'admin123',
+      staff_phone: '79250000001',
+      staff_password: 'staff123A',
     });
   } catch (e) {
     await client.query('ROLLBACK');

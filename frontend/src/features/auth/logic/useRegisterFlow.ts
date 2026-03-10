@@ -16,7 +16,7 @@ import {
   toDbDigits,
   handlePhoneBackspace,
 } from '../../../shared/lib'
-import { useResendTimer } from '../../../hooks/ResendTimer';
+import { useResendTimer } from '../../../shared/lib/hooks/ResendTimer';
 
 import type { UserPayload } from '../../../AuthContext';
 
@@ -127,7 +127,18 @@ export const useRegisterFlow = () => {
     e.preventDefault();
     setErr(null);
     if (code.length !== 4) return;
-    setStep('password');
+    setBusy(true);
+    try {
+      await api('/v1/auth/verify-code', {
+        method: 'POST',
+        body: JSON.stringify({ phone: apiPhone, code }),
+      });
+      setStep('password');
+    } catch (e: any) {
+      setErr(rusify(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   // Шаг 3 — пароль (теперь финальный)

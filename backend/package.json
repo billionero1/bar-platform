@@ -5,16 +5,23 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "lint": "node --check index.js config.js db.js middleware/requireAuth.js routes/v1/auth.js routes/v1/ingredients.js routes/v1/preparations.js routes/v1/cocktails.js routes/v1/forms.js routes/v1/team.js routes/v1/docs.js routes/v1/analytics.js routes/v1/training.js utils/sessionUtils.js utils/permissions.js utils/csv.js utils/rateLimit.js utils/quiz.js utils/storage.js utils/trainingSeed.js utils/defaultTrainingContent.js utils/envPolicy.js services/otpDelivery.js scripts/check_env.mjs scripts/rotate_secrets.mjs scripts/otp_probe.mjs",
+    "env:check": "node scripts/check_env.mjs --env .env",
+    "secrets:rotate": "node scripts/rotate_secrets.mjs --env .env",
+    "otp:probe": "node scripts/otp_probe.mjs --env .env",
+    "test": "node --test ./tests/**/*.test.js",
+    "check": "npm run lint"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "csrf-csrf": "^4.0.3",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.2",
     "pg": "^8.12.0",
     "uuid": "^11.1.0"
   },

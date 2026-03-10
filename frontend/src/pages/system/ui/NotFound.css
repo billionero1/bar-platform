@@ -1,0 +1,31 @@
+.nf {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.nf-card {
+  width: 100%;
+  max-width: 520px;
+}
+
+.nf-code {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.nf-title {
+  margin-top: 8px;
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+.nf-actions {
+  margin-top: 18px;
+}
+
+.nf-link {
+  text-decoration: none;
+}

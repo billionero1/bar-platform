@@ -1,31 +1,20 @@
-/* src/features/auth/ui/_shared/auth.shared.css */
-
-/* ==========================================================================
-   AUTH: ЕДИНЫЕ стили форм и базового каркаса страниц (для всех платформ)
-   Отличия устройств — только в AuthShell (split/full-screen), НЕ здесь
-   ========================================================================== */
-
-/* ======= БАЗОВЫЙ КАРКАС СТРАНИЦ ======= */
+/* src/features/auth/ui/_shared/auth.shared.css
+   Единые стили форм для всех устройств.
+*/
 
 .auth-page {
-  /* важно: работает и внутри "карточки" мобилки, и внутри right-inner в split */
   min-height: 0;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-
-  /* по умолчанию все auth-страницы "сверху" (Register/Recover) */
   justify-content: flex-start;
 }
 
 .auth-page-main {
-  padding-top: 0;
-  padding-bottom: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* узкий внутренний столбец, чтобы поля не были во всю ширину */
 .auth-page-inner {
   width: 100%;
   max-width: 380px;
@@ -34,14 +23,11 @@
   flex-direction: column;
 }
 
-/* футер со ссылками */
 .auth-page-footer {
   margin-top: 20px;
-  padding-bottom: 0;
 }
 
-/* ======= ЗАГОЛОВКИ (для Register/Recover) ======= */
-
+/* Заголовки (Register/Recover) */
 .login-header {
   display: flex;
   flex-direction: column;
@@ -53,14 +39,14 @@
 .login-header h2 {
   margin: 0;
   font-size: 22px;
-  font-weight: 600;
-  color: #f9fafb;
+  font-weight: 650;
+  color: var(--text);
 }
 
 .login-header-sub {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .login-header-top {
@@ -69,16 +55,12 @@
   gap: 10px;
 }
 
-.login-header--with-back .login-header-sub {
-  margin-left: 0;
-}
-
 .login-header-back {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  border: 1px solid rgba(55, 65, 81, 0.9);
-  background: rgba(15, 23, 42, 0.96);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
   cursor: pointer;
   position: relative;
 }
@@ -90,13 +72,12 @@
   margin: auto;
   width: 8px;
   height: 8px;
-  border-left: 2px solid #e5e7eb;
-  border-bottom: 2px solid #e5e7eb;
+  border-left: 2px solid var(--text);
+  border-bottom: 2px solid var(--text);
   transform: rotate(45deg);
 }
 
-/* ======= ФОРМА ======= */
-
+/* Форма */
 .login-form {
   margin-top: 10px;
   display: flex;
@@ -106,75 +87,59 @@
 
 .login-form label {
   font-size: 12px;
-  opacity: 0.95;
+  color: var(--muted);
 }
 
 .login-form input {
   width: 100%;
   height: 44px;
   padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(55, 65, 81, 0.9);
-  background: rgba(15, 23, 42, 0.96);
-  color: #e5e7eb;
+  border-radius: var(--r-md);
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
   outline: none;
-  font-size: 16px; /* чтобы iOS не зумил */
+  font-size: 16px;
   box-sizing: border-box;
 }
 
 .login-form input::placeholder {
-  color: #6b7280;
+  color: var(--input-placeholder);
 }
 
-/* ======= ОСНОВНАЯ КНОПКА ======= */
-
+/* Кнопка */
 .login-submit {
   margin-top: 16px;
   height: 46px;
-  border-radius: 999px;
-  border: 1px solid rgba(37, 99, 235, 0.9);
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
-  color: #f9fafb;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(0,0,0,0.0);
+  background: var(--primary);
+  color: var(--primary-contrast);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow:
-    0 10px 30px rgba(15, 23, 42, 0.9),
-    0 0 0 1px rgba(15, 23, 42, 0.9);
-  transition:
-    transform 0.06s ease,
-    box-shadow 0.16s ease,
-    filter 0.16s ease,
-    opacity 0.16s ease;
-  box-sizing: border-box;
   width: 100%;
+  box-shadow: var(--shadow);
+  transition: transform 0.06s ease, filter 0.16s ease, opacity 0.16s ease;
 }
 
 .login-submit:hover:not(:disabled) {
-  filter: brightness(1.04);
-  box-shadow:
-    0 14px 36px rgba(15, 23, 42, 0.95),
-    0 0 0 1px rgba(15, 23, 42, 1);
+  filter: brightness(1.03);
 }
 
 .login-submit:active:not(:disabled) {
   transform: translateY(1px) scale(0.985);
-  box-shadow:
-    0 8px 22px rgba(15, 23, 42, 0.9),
-    0 0 0 1px rgba(15, 23, 42, 1);
 }
 
 .login-submit:disabled {
   opacity: 0.55;
   cursor: default;
-  filter: grayscale(0.1);
 }
 
-/* ======= ССЫЛКИ ПОД ФОРМОЙ ======= */
-
+/* Ссылки */
 .login-links-row {
   margin-top: 24px;
   display: flex;
@@ -182,43 +147,23 @@
   justify-content: center;
   gap: 12px;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted);
 }
 
 .login-links-divider {
   flex: 0 0 1px;
   height: 14px;
-  background: rgba(55, 65, 81, 1);
-}
-
-/* ======= ТЕКСТЫ / ОШИБКИ / ССЫЛКИ ======= */
-
-.hint {
-  font-size: 12px;
-  color: #a6accd;
-  text-align: left;
-}
-
-.muted {
-  font-size: 12px;
-  color: #6b7280;
-  text-align: left;
-}
-
-.muted-center {
-  text-align: center;
-  width: 100%;
+  background: var(--border);
 }
 
 .error {
   font-size: 12px;
-  color: #f97373;
+  color: var(--danger);
   text-align: left;
 }
 
 .link-text {
-  color: #9ca3af;
-  text-decoration: none !important;
+  color: var(--muted);
   cursor: pointer;
   border: none;
   background: none;
@@ -228,11 +173,10 @@
 }
 
 .link-text:hover {
-  color: #e5e7eb;
+  color: var(--text);
 }
 
-/* ======= ПАРОЛЬ С ГЛАЗОМ ======= */
-
+/* password eye */
 .password-field {
   position: relative;
 }
@@ -257,7 +201,7 @@
   position: absolute;
   width: 18px;
   height: 10px;
-  border: 2px solid #9ca3af;
+  border: 2px solid rgba(17, 24, 39, 0.45);
   border-radius: 50% / 60%;
   top: 50%;
   left: 50%;
@@ -270,18 +214,14 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #9ca3af;
+  background: rgba(17, 24, 39, 0.45);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
 }
 
-/* ======= FOCUS (только auth элементы) ======= */
-
-.login-submit:focus-visible,
-.link-text:focus-visible,
-.login-header-back:focus-visible,
-.password-field .eye:focus-visible {
-  outline: 2px solid rgba(129, 140, 248, 0.95);
-  outline-offset: 3px;
+html.theme-dark .password-field .eye::before,
+html.theme-dark .password-field .eye::after {
+  border-color: rgba(17, 24, 39, 0.45);
+  background: rgba(17, 24, 39, 0.45);
 }

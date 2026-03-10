@@ -1,28 +1,28 @@
 /* src/pages/auth/AuthShell.mobile.css */
 
-/* AUTH: общий контейнер (мобильный) */
 .auth-mobile-shell {
   height: 100dvh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(circle at top, #111827 0, #020617 55%, #020617 100%);
+
+  background: transparent;
+
   padding-top: calc(24px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   padding-left: 16px;
   padding-right: 16px;
+
   overflow-y: auto;
   overscroll-behavior-y: contain;
 }
 
-/* основной блок под auth-страницы */
 .auth-mobile-main {
   flex: 1 1 auto;
   display: flex;
   justify-content: center;
 }
 
-/* карточка форм */
 .auth-mobile-card {
   flex: 1 1 auto;
   width: 100%;
@@ -30,4 +30,22 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+
+  /* ✅ УБРАЛИ ТОЛЬКО ВИЗУАЛ КАРТОЧКИ */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+
+  /* ✅ ВАЖНО: padding оставляем, иначе “поедет” визуально */
+  padding: 16px;
+
+
+
+  /* Единый “контейнер карточки” */
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 16px;
 }

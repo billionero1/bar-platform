@@ -7,10 +7,17 @@ yarn.lock
 # Vite/React build
 frontend/dist/
 .DS_Store
+backend/uploads/
+backend/storage/
 
 # Env/секреты
 .env
 backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 ops/*.pem
 
 # Nginx/lets-encrypt на сервере — только шаблон храним

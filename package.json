@@ -1,0 +1,10 @@
+{
+  "name": "bar-platform",
+  "private": true,
+  "scripts": {
+    "setup": "npm --prefix backend ci && npm --prefix frontend ci",
+    "test": "npm --prefix backend run test && npm --prefix frontend run test",
+    "check": "npm --prefix backend run check && npm --prefix frontend run check",
+    "audit": "npm --prefix backend audit && npm --prefix frontend audit"
+  }
+}

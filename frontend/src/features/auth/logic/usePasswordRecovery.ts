@@ -13,7 +13,7 @@ import {
   handlePhoneBackspace,
 } from '../../../shared/lib'
 
-import { useResendTimer } from '../../../hooks/ResendTimer';
+import { useResendTimer } from '../../../shared/lib/hooks/ResendTimer';
 
 
 

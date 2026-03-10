@@ -12,6 +12,14 @@ import { ensureCsrfInitialized } from './shared/api';
 import { LayoutProvider } from './shared/ui/LayoutProvider';
 import { useLayout } from './shared/ui/useLayout';
 
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.error('Service worker registration failed', err);
+    });
+  });
+}
+
 // Простой лоадер
 const SimpleLoader: React.FC = () => (
   <div

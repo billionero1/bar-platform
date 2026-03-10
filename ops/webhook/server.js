@@ -2,8 +2,11 @@ const http = require('http');
 const { spawn } = require('child_process');
 const createHandler = require('github-webhook-handler');
 
-// СЕКРЕТ: берём из env, иначе — твой старый
-const SECRET = process.env.WEBHOOK_SECRET || 'aE5995316_gh_deploy_2025';
+const SECRET = String(process.env.WEBHOOK_SECRET || '').trim();
+if (!SECRET) {
+  console.error('[webhook] WEBHOOK_SECRET is required');
+  process.exit(1);
+}
 
 // Совпадает с nginx-прокси и настройкой GitHub
 const handler = createHandler({ path: '/webhooks/github', secret: SECRET });
