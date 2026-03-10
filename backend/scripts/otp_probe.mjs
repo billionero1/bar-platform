@@ -16,6 +16,7 @@ function parseArgs(argv) {
     phone: '',
     purpose: 'verify',
     code: '',
+    chatId: '',
     allowNonProd: false,
   };
 
@@ -41,6 +42,11 @@ function parseArgs(argv) {
       i += 1;
       continue;
     }
+    if (token === '--chat-id') {
+      args.chatId = argv[i + 1] || '';
+      i += 1;
+      continue;
+    }
     if (token === '--allow-non-prod') {
       args.allowNonProd = true;
       continue;
@@ -55,7 +61,7 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-  console.log('Usage: node scripts/otp_probe.mjs --phone <E164> [--purpose verify|reset] [--code 1234] [--env .env]');
+  console.log('Usage: node scripts/otp_probe.mjs --phone <E164> [--purpose verify|reset] [--code 1234] [--chat-id 123456789] [--env .env]');
 }
 
 function resolveEnvPath(rawPath) {
@@ -104,11 +110,15 @@ if (args.purpose !== 'verify' && args.purpose !== 'reset') {
 const code = args.code || String(crypto.randomInt(0, 10000)).padStart(4, '0');
 
 try {
-  const result = await deliverOtp({
+  const payload = {
     phone,
     code,
     purpose: args.purpose,
-  });
+  };
+  const chatId = String(args.chatId || '').trim();
+  if (chatId) payload.chatId = chatId;
+
+  const result = await deliverOtp(payload);
 
   console.log('[otp:probe] OTP delivered');
   console.log(JSON.stringify(result, null, 2));

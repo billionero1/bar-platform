@@ -113,6 +113,19 @@ ENV_PATH=backend/.env \
 
 `ops/deploy.sh` also runs `env:check` automatically; if `OTP_TEST_PHONE` is exported on server, it additionally runs `otp:probe` before backend restart.
 
+Для Telegram bind-flow (привязка телефона -> chat_id) нужен отдельный auth-бот:
+
+- `OTP_TELEGRAM_BOT_TOKEN` — токен auth-бота (не VPN-бота)
+- `OTP_TELEGRAM_BOT_USERNAME` — username auth-бота без `@`
+- `OTP_TELEGRAM_BIND_SECRET` — секрет webhook URL
+
+Webhook у бота должен смотреть в backend бара:
+
+```bash
+curl -sS -X POST "https://api.telegram.org/bot${OTP_TELEGRAM_BOT_TOKEN}/setWebhook" \
+  -d "url=https://bar-calc.ru/v1/auth/telegram/webhook/${OTP_TELEGRAM_BIND_SECRET}"
+```
+
 ## CI
 
 GitHub Actions: `.github/workflows/ci.yml`.

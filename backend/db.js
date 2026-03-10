@@ -110,7 +110,18 @@ async function ensureSchemaMigrationsTable() {
 async function runMigrationFile(version, sql, checksum) {
   const client = await pool.connect();
   try {
-    await client.query(sql);
+    if (/create\s+index\s+concurrently/i.test(sql)) {
+      // CREATE INDEX CONCURRENTLY нельзя выполнять одним multi-statement запросом.
+      const statements = sql
+        .split(/;\s*(?:\r?\n|$)/g)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      for (const statement of statements) {
+        await client.query(statement);
+      }
+    } else {
+      await client.query(sql);
+    }
     await client.query(
       `INSERT INTO schema_migrations(version, checksum)
        VALUES ($1, $2)

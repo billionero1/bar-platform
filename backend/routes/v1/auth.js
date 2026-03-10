@@ -36,6 +36,10 @@ const CSRF_IGNORED_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 router.use(cookieParser());
 
 function csrfMiddleware(req, res, next) {
+  if (req.path?.startsWith('/telegram/webhook/')) {
+    return next();
+  }
+
   if (CSRF_IGNORED_METHODS.includes(req.method)) {
     return next();
   }
@@ -97,6 +101,15 @@ const PHONE_VERIFICATION_TTL_MINUTES = Number(
   process.env.PHONE_VERIFICATION_TTL_MINUTES || 60
 );
 const PHONE_VERIFICATION_INTERVAL = `${Math.max(1, PHONE_VERIFICATION_TTL_MINUTES)} minutes`;
+const TELEGRAM_BIND_TOKEN_TTL_MINUTES = Number(
+  process.env.OTP_TELEGRAM_BIND_TOKEN_TTL_MINUTES || 20
+);
+const TELEGRAM_BIND_SECRET = String(process.env.OTP_TELEGRAM_BIND_SECRET || '').trim();
+const TELEGRAM_BOT_USERNAME = String(process.env.OTP_TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
+const TELEGRAM_BOT_TOKEN = String(process.env.OTP_TELEGRAM_BOT_TOKEN || '').trim();
+const TELEGRAM_API_BASE = String(process.env.OTP_TELEGRAM_API_BASE || 'https://api.telegram.org')
+  .trim()
+  .replace(/\/+$/, '');
 
 function cookieOpts() {
   return {
@@ -136,6 +149,196 @@ function maskPhone(phone) {
 function normalizeInviteToken(raw) {
   const token = String(raw || '').trim();
   return token.length >= 24 ? token : '';
+}
+
+function normalizeBindToken(raw) {
+  const token = String(raw || '').trim();
+  if (!token) return '';
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(token)) return '';
+  return token;
+}
+
+function parseTelegramStartPayload(text) {
+  const value = String(text || '').trim();
+  const m = value.match(/^\/start(?:@\w+)?(?:\s+(.+))?$/i);
+  if (!m) return '';
+  return String(m[1] || '').trim();
+}
+
+function telegramBindingEnabled() {
+  return !!(TELEGRAM_BOT_USERNAME && TELEGRAM_BIND_SECRET && TELEGRAM_BOT_TOKEN);
+}
+
+function telegramBotLabel() {
+  if (!TELEGRAM_BOT_USERNAME) return null;
+  return `@${TELEGRAM_BOT_USERNAME}`;
+}
+
+function buildTelegramBindUrl(token) {
+  if (!TELEGRAM_BOT_USERNAME || !token) return null;
+  return `https://t.me/${TELEGRAM_BOT_USERNAME}?start=bind_${token}`;
+}
+
+async function findTelegramPhoneLink(phone) {
+  const q = await db(
+    `SELECT phone, chat_id, telegram_user_id, telegram_username, telegram_first_name, linked_at, updated_at
+       FROM phone_telegram_links
+      WHERE phone=$1
+      LIMIT 1`,
+    [phone]
+  );
+  return q.rows[0] || null;
+}
+
+async function createTelegramBindChallenge(phone, purpose, req) {
+  const ttlMinutesRaw = Number.isFinite(TELEGRAM_BIND_TOKEN_TTL_MINUTES)
+    ? TELEGRAM_BIND_TOKEN_TTL_MINUTES
+    : 20;
+  const ttlMinutes = Math.max(5, Math.min(120, Math.round(ttlMinutesRaw)));
+
+  const token = crypto.randomBytes(24).toString('hex');
+  const tokenHash = sha256(token);
+  await db(
+    `DELETE FROM otp_telegram_bind_tokens
+      WHERE phone=$1
+        AND purpose=$2`,
+    [phone, purpose]
+  );
+  const ins = await db(
+    `INSERT INTO otp_telegram_bind_tokens(token_hash, phone, purpose, expires_at, created_ip)
+     VALUES ($1,$2,$3, now() + $4::interval, $5)
+     RETURNING expires_at`,
+    [tokenHash, phone, purpose, `${ttlMinutes} minutes`, req?.ip || null]
+  );
+
+  return {
+    token,
+    bind_url: buildTelegramBindUrl(token),
+    bot_username: telegramBotLabel(),
+    expires_at: ins.rows[0]?.expires_at || null,
+    phone_masked: maskPhone(phone),
+    purpose,
+  };
+}
+
+async function resolveTelegramBinding(phone, purpose, req) {
+  const link = await findTelegramPhoneLink(phone);
+  if (link?.chat_id) {
+    return { ok: true, chatId: String(link.chat_id) };
+  }
+
+  if (!telegramBindingEnabled()) {
+    return {
+      ok: false,
+      status: 503,
+      payload: { error: 'telegram_bind_unavailable' },
+    };
+  }
+
+  const details = await createTelegramBindChallenge(phone, purpose, req);
+  return {
+    ok: false,
+    status: 428,
+    payload: {
+      error: 'telegram_bind_required',
+      code: 'TELEGRAM_BIND_REQUIRED',
+      details,
+    },
+  };
+}
+
+async function sendTelegramBotMessage(chatId, text) {
+  if (!TELEGRAM_BOT_TOKEN || !chatId || !text) return false;
+
+  try {
+    const response = await fetch(`${TELEGRAM_API_BASE}/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        disable_web_page_preview: true,
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function consumeTelegramBindToken(token, message) {
+  const tokenHash = sha256(token);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const tokenQ = await client.query(
+      `SELECT id, phone, purpose, expires_at, consumed_at
+         FROM otp_telegram_bind_tokens
+        WHERE token_hash=$1
+        LIMIT 1
+        FOR UPDATE`,
+      [tokenHash]
+    );
+
+    if (!tokenQ.rowCount) {
+      await client.query('ROLLBACK');
+      return { status: 'not_found' };
+    }
+
+    const row = tokenQ.rows[0];
+    if (new Date(row.expires_at) <= new Date()) {
+      await client.query('ROLLBACK');
+      return { status: 'expired', phone: row.phone, purpose: row.purpose };
+    }
+
+    const chatId = String(message?.chat?.id || '').trim();
+    if (!chatId) {
+      await client.query('ROLLBACK');
+      return { status: 'invalid_chat' };
+    }
+
+    const tgUserIdRaw = message?.from?.id;
+    const tgUserId = Number.isFinite(Number(tgUserIdRaw)) ? Number(tgUserIdRaw) : null;
+    const tgUsername = String(message?.from?.username || '').trim() || null;
+    const tgFirstName = String(message?.from?.first_name || '').trim() || null;
+
+    await client.query(
+      `INSERT INTO phone_telegram_links(
+         phone, chat_id, telegram_user_id, telegram_username, telegram_first_name, linked_at, updated_at
+       )
+       VALUES ($1,$2,$3,$4,$5, now(), now())
+       ON CONFLICT (phone) DO UPDATE
+         SET chat_id = EXCLUDED.chat_id,
+             telegram_user_id = EXCLUDED.telegram_user_id,
+             telegram_username = EXCLUDED.telegram_username,
+             telegram_first_name = EXCLUDED.telegram_first_name,
+             updated_at = now()`,
+      [row.phone, chatId, tgUserId, tgUsername, tgFirstName]
+    );
+
+    if (!row.consumed_at) {
+      await client.query(
+        `UPDATE otp_telegram_bind_tokens
+            SET consumed_at = now()
+          WHERE id=$1`,
+        [row.id]
+      );
+    }
+
+    await client.query('COMMIT');
+    return {
+      status: row.consumed_at ? 'already_bound' : 'bound',
+      phone: row.phone,
+      purpose: row.purpose,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function isLimited(key, limit = 8, windowMs = 5 * 60 * 1000) {
@@ -311,6 +514,102 @@ router.get('/has-session', async (req, res) => {
   }
 });
 
+router.get('/telegram/bind-status', async (req, res) => {
+  try {
+    const token = normalizeBindToken(req.query?.token);
+    if (!token) return res.status(400).json({ error: 'telegram_bind_token_required' });
+
+    const q = await db(
+      `SELECT phone, purpose, expires_at, consumed_at
+         FROM otp_telegram_bind_tokens
+        WHERE token_hash=$1
+        LIMIT 1`,
+      [sha256(token)]
+    );
+    if (!q.rowCount) return res.status(404).json({ error: 'telegram_bind_not_found' });
+
+    const row = q.rows[0];
+    const expired = new Date(row.expires_at) <= new Date();
+    if (expired) {
+      return res.json({
+        status: 'expired',
+        purpose: row.purpose,
+        expires_at: row.expires_at,
+        phone_masked: maskPhone(row.phone),
+        bot_username: telegramBotLabel(),
+      });
+    }
+
+    const link = await findTelegramPhoneLink(row.phone);
+    const bound = !!(row.consumed_at || link);
+
+    return res.json({
+      status: bound ? 'bound' : 'pending',
+      purpose: row.purpose,
+      expires_at: row.expires_at,
+      phone_masked: maskPhone(row.phone),
+      bot_username: telegramBotLabel(),
+    });
+  } catch (e) {
+    console.error('telegram.bind-status error', e);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+router.post('/telegram/webhook/:secret', async (req, res) => {
+  try {
+    if (!telegramBindingEnabled()) {
+      return res.status(404).json({ error: 'telegram_bind_unavailable' });
+    }
+
+    const secret = String(req.params.secret || '').trim();
+    if (!secret || !secureCompare(secret, TELEGRAM_BIND_SECRET)) {
+      return res.status(401).json({ error: 'invalid_secret' });
+    }
+
+    const message = req.body?.message || req.body?.edited_message;
+    const chatId = String(message?.chat?.id || '').trim();
+    if (!chatId) return res.json({ ok: true });
+
+    const payload = parseTelegramStartPayload(message?.text);
+    if (!payload) return res.json({ ok: true });
+
+    if (!payload.startsWith('bind_')) {
+      await sendTelegramBotMessage(chatId, 'Открой ссылку из ProBar для привязки номера.');
+      return res.json({ ok: true });
+    }
+
+    const token = normalizeBindToken(payload.slice('bind_'.length));
+    if (!token) {
+      await sendTelegramBotMessage(chatId, 'Некорректная ссылка привязки. Запроси новую в приложении.');
+      return res.json({ ok: true });
+    }
+
+    const result = await consumeTelegramBindToken(token, message);
+
+    if (result.status === 'bound' || result.status === 'already_bound') {
+      await sendTelegramBotMessage(chatId, 'Номер привязан. Вернись в ProBar и продолжи регистрацию.');
+      return res.json({ ok: true });
+    }
+
+    if (result.status === 'expired') {
+      await sendTelegramBotMessage(chatId, 'Ссылка истекла. Запроси новую в ProBar.');
+      return res.json({ ok: true });
+    }
+
+    if (result.status === 'invalid_chat') {
+      await sendTelegramBotMessage(chatId, 'Не удалось определить chat_id. Попробуй ещё раз.');
+      return res.json({ ok: true });
+    }
+
+    await sendTelegramBotMessage(chatId, 'Ссылка не найдена. Запроси новую в приложении.');
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('telegram.webhook error', e);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
 // === phone verification (SMS-коды) ===
 router.post('/request-verify', async (req, res) => {
   try {
@@ -367,6 +666,19 @@ router.post('/request-verify', async (req, res) => {
       return res.status(429).json({ error: 'too_many_requests' });
     }
 
+    const binding = await resolveTelegramBinding(p, 'verify', req);
+    if (!binding.ok) {
+      await logAuthEvent('verify_sms_requested', req, {
+        phone: p,
+        success: false,
+        details: {
+          purpose: 'verify',
+          reason: binding.payload?.error || 'telegram_bind_required',
+        },
+      });
+      return res.status(binding.status).json(binding.payload);
+    }
+
     // создаём SMS-код
     const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
     await db(
@@ -387,6 +699,7 @@ router.post('/request-verify', async (req, res) => {
         phone: p,
         code,
         purpose: 'verify',
+        chatId: binding.chatId,
       });
     } catch (deliveryError) {
       await db(`DELETE FROM passcodes WHERE id=$1`, [passcodeId]).catch(() => {});
@@ -520,6 +833,9 @@ router.post('/request-reset', async (req, res) => {
       return res.status(429).json({ error: 'too_many_requests' });
     }
 
+    const resetLink = await findTelegramPhoneLink(p);
+    const resetChatId = resetLink?.chat_id ? String(resetLink.chat_id) : '';
+
     const code = String(crypto.randomInt(0, 10000)).padStart(4, '0');
     const codeIns = await db(
       `INSERT INTO passcodes(phone, code, purpose, attempts_left, expires_at)
@@ -534,6 +850,7 @@ router.post('/request-reset', async (req, res) => {
         phone: p,
         code,
         purpose: 'reset',
+        ...(resetChatId ? { chatId: resetChatId } : {}),
       });
     } catch (deliveryError) {
       await db(`DELETE FROM passcodes WHERE id=$1`, [passcodeId]).catch(() => {});

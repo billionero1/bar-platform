@@ -68,8 +68,16 @@ function validateOtpConfig(env, errors, warnings) {
     if (provider === 'telegram') {
       const token = asString(env.OTP_TELEGRAM_BOT_TOKEN);
       const chatIds = parseList(env.OTP_TELEGRAM_CHAT_IDS);
-      if (!token || isPlaceholder(token) || !chatIds.length) {
-        warnings.push('telegram provider is listed but OTP_TELEGRAM_BOT_TOKEN/OTP_TELEGRAM_CHAT_IDS are not fully configured');
+      const botUsername = asString(env.OTP_TELEGRAM_BOT_USERNAME).replace(/^@/, '');
+      const bindSecret = asString(env.OTP_TELEGRAM_BIND_SECRET);
+
+      const hasStaticTargets = chatIds.length > 0;
+      const hasDynamicBinding = !!botUsername && !!bindSecret && !isPlaceholder(bindSecret) && bindSecret.length >= 16;
+
+      if (!token || isPlaceholder(token)) {
+        warnings.push('telegram provider is listed but OTP_TELEGRAM_BOT_TOKEN is missing/invalid');
+      } else if (!hasStaticTargets && !hasDynamicBinding) {
+        warnings.push('telegram provider is listed but neither OTP_TELEGRAM_CHAT_IDS nor OTP_TELEGRAM_BOT_USERNAME+OTP_TELEGRAM_BIND_SECRET are configured');
       } else {
         hasConfiguredProvider = true;
       }
@@ -138,4 +146,3 @@ export function assertRuntimeEnvSafe(env = process.env) {
   }
   return report;
 }
-

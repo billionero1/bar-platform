@@ -22,6 +22,40 @@ import type { UserPayload } from '../../../AuthContext';
 
 type Step = 'phone' | 'code' | 'password';
 
+type TelegramBindState = {
+  token: string;
+  bindUrl: string | null;
+  botUsername: string | null;
+  expiresAt: string | null;
+  phoneMasked: string | null;
+  purpose: string;
+  status: 'pending' | 'bound' | 'expired';
+};
+
+function parseTelegramBindState(error: any): TelegramBindState | null {
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
+  const isBindRequired =
+    code === 'TELEGRAM_BIND_REQUIRED'
+    || message === 'telegram_bind_required';
+
+  if (!isBindRequired) return null;
+
+  const details = (error?.details && typeof error.details === 'object') ? error.details : {};
+  const token = String((details as any).token || '').trim();
+  if (!token) return null;
+
+  return {
+    token,
+    bindUrl: String((details as any).bind_url || '').trim() || null,
+    botUsername: String((details as any).bot_username || '').trim() || null,
+    expiresAt: String((details as any).expires_at || '').trim() || null,
+    phoneMasked: String((details as any).phone_masked || '').trim() || null,
+    purpose: String((details as any).purpose || 'verify'),
+    status: 'pending',
+  };
+}
+
 export const useRegisterFlow = () => {
   const nav = useNavigate();
   const { loginPassword, hydrate } = useContext(AuthContext);
@@ -39,6 +73,7 @@ export const useRegisterFlow = () => {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [phoneAlreadyRegistered, setPhoneAlreadyRegistered] = useState(false);
+  const [telegramBind, setTelegramBind] = useState<TelegramBindState | null>(null);
 
   const { canResend, leftSec, start: startResendTimer } = useResendTimer({
     defaultDelaySec: 30,
@@ -61,6 +96,7 @@ export const useRegisterFlow = () => {
     setPhone(formatPhone(v));
     if (err) setErr(null);
     if (phoneAlreadyRegistered) setPhoneAlreadyRegistered(false);
+    if (telegramBind) setTelegramBind(null);
   };
 
   const handleCodeChange = (value: string) => {
@@ -79,6 +115,17 @@ export const useRegisterFlow = () => {
   const goLogin = () => nav('/login');
   const goLoginWithPhone = () => nav('/login', { state: { phone: dbPhone } });
 
+  const requestVerifyCode = useCallback(async (cleanName?: string) => {
+    const payload: Record<string, unknown> = { phone: apiPhone };
+    if (cleanName && cleanName.trim()) {
+      payload.name = cleanName.trim();
+    }
+    await api('/v1/auth/request-verify', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }, [apiPhone]);
+
   const handleBackClick = () => {
     if (step === 'phone') {
       goLogin();
@@ -92,6 +139,7 @@ export const useRegisterFlow = () => {
     e.preventDefault();
     setErr(null);
     setPhoneAlreadyRegistered(false);
+    setTelegramBind(null);
 
     const cleanName = name.trim();
     if (!cleanName) return;
@@ -103,15 +151,16 @@ export const useRegisterFlow = () => {
         return;
       }
 
-      await api('/v1/auth/request-verify', {
-        method: 'POST',
-        body: JSON.stringify({ phone: apiPhone, name: cleanName }),
-      });
+      await requestVerifyCode(cleanName);
 
       lastVerifyAtRef.current = now;
       startResendTimer();
       setStep('code');
     } catch (e: any) {
+      const bindState = parseTelegramBindState(e);
+      if (bindState) {
+        setTelegramBind(bindState);
+      }
       const msg = rusify(e);
       setErr(msg);
       if (msg.toLowerCase().includes('уже зарегистрирован')) {
@@ -208,15 +257,56 @@ export const useRegisterFlow = () => {
 
   const resendCode = useCallback(async () => {
     try {
-      await api('/v1/auth/request-verify', {
-        method: 'POST',
-        body: JSON.stringify({ phone: apiPhone }),
-      });
+      await requestVerifyCode();
       startResendTimer();
     } catch (e: any) {
+      const bindState = parseTelegramBindState(e);
+      if (bindState) {
+        setTelegramBind(bindState);
+        setStep('phone');
+      }
       setErr(rusify(e));
     }
-  }, [apiPhone, startResendTimer]);
+  }, [requestVerifyCode, startResendTimer]);
+
+  const checkTelegramBinding = useCallback(async () => {
+    if (!telegramBind?.token) {
+      setErr('Ссылка для Telegram не найдена. Нажмите «Продолжить» ещё раз.');
+      return;
+    }
+
+    setBusy(true);
+    setErr(null);
+    try {
+      const qs = new URLSearchParams({ token: telegramBind.token });
+      const status = await api<{
+        status: 'pending' | 'bound' | 'expired';
+      }>(`/v1/auth/telegram/bind-status?${qs.toString()}`, {
+        method: 'GET',
+      });
+
+      if (status.status === 'bound') {
+        await requestVerifyCode(name.trim());
+        startResendTimer();
+        setTelegramBind(null);
+        setStep('code');
+        return;
+      }
+
+      if (status.status === 'expired') {
+        setTelegramBind((prev) => (prev ? { ...prev, status: 'expired' } : prev));
+        setErr('Ссылка привязки истекла. Нажмите «Продолжить» для новой ссылки.');
+        return;
+      }
+
+      setTelegramBind((prev) => (prev ? { ...prev, status: 'pending' } : prev));
+      setErr('Привязка ещё не завершена. Нажмите Start в Telegram и проверьте снова.');
+    } catch (e: any) {
+      setErr(rusify(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [name, requestVerifyCode, startResendTimer, telegramBind]);
 
   return {
     // состояние
@@ -235,6 +325,7 @@ export const useRegisterFlow = () => {
     err,
     busy,
     phoneAlreadyRegistered,
+    telegramBind,
     canResend,
     leftSec,
     passwordsMismatch,
@@ -257,6 +348,7 @@ export const useRegisterFlow = () => {
     nextCode,
     nextPassword,
     resendCode,
+    checkTelegramBinding,
     goLogin,
     goLoginWithPhone,
   };

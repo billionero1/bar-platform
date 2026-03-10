@@ -31,7 +31,8 @@ function buildMessage({ phone, code, purpose }) {
 
 async function sendTelegramOtp(payload) {
   const botToken = String(process.env.OTP_TELEGRAM_BOT_TOKEN || '').trim();
-  const chatIds = parseChatIds(process.env.OTP_TELEGRAM_CHAT_IDS);
+  const directChatId = String(payload?.chatId || '').trim();
+  const chatIds = directChatId ? [directChatId] : parseChatIds(process.env.OTP_TELEGRAM_CHAT_IDS);
   if (!botToken || !chatIds.length) {
     throw new Error('telegram_not_configured');
   }
@@ -109,6 +110,7 @@ export async function deliverOtp(payload) {
   const phone = String(payload?.phone || '').trim();
   const code = String(payload?.code || '').trim();
   const purpose = String(payload?.purpose || '').trim();
+  const chatId = String(payload?.chatId || '').trim();
 
   if (!phone || !code || !purpose) {
     throw new Error('otp_payload_invalid');
@@ -123,7 +125,7 @@ export async function deliverOtp(payload) {
   for (const provider of providers) {
     try {
       if (provider === 'telegram') {
-        return await sendTelegramOtp({ phone, code, purpose });
+        return await sendTelegramOtp({ phone, code, purpose, chatId });
       }
       if (provider === 'webhook') {
         return await sendWebhookOtp({ phone, code, purpose });

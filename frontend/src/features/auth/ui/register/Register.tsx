@@ -18,6 +18,7 @@ const Register: React.FC = () => {
     err,
     busy,
     phoneAlreadyRegistered,
+    telegramBind,
     canResend,
     leftSec,
     passwordsMismatch,
@@ -36,6 +37,7 @@ const Register: React.FC = () => {
     nextCode,
     nextPassword,
     resendCode,
+    checkTelegramBinding,
     goLogin,
     goLoginWithPhone,
   } = useRegisterFlow();
@@ -56,7 +58,7 @@ const Register: React.FC = () => {
 
           <p className="login-header-sub">
             {step === 'phone' &&
-              'Укажите имя и номер телефона, мы отправим код подтверждения.'}
+              'Укажите имя и номер телефона, затем подтвердите Telegram и получите код.'}
             {step === 'code' &&
               'Введите код из сообщения, чтобы подтвердить номер.'}
             {step === 'password' && 'Придумайте пароль для входа в сервис.'}
@@ -90,6 +92,44 @@ const Register: React.FC = () => {
                 >
                   Войти с этим номером
                 </button>
+              </div>
+            )}
+
+            {telegramBind && (
+              <div className="muted" style={{ marginTop: 8 }}>
+                <div>
+                  Нужно привязать Telegram для номера {telegramBind.phoneMasked || phone}.
+                </div>
+                {telegramBind.botUsername ? (
+                  <div style={{ marginTop: 4 }}>
+                    Бот привязки: <b>{telegramBind.botUsername}</b>
+                  </div>
+                ) : null}
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {telegramBind.bindUrl ? (
+                    <a
+                      className="link-text"
+                      href={telegramBind.bindUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Открыть Telegram и нажать Start
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="link-text"
+                    onClick={checkTelegramBinding}
+                    disabled={busy}
+                  >
+                    Я нажал Start, проверить
+                  </button>
+                </div>
+                {telegramBind.status === 'expired' ? (
+                  <div style={{ marginTop: 4 }}>
+                    Ссылка истекла. Нажмите «Продолжить», чтобы получить новую.
+                  </div>
+                ) : null}
               </div>
             )}
 

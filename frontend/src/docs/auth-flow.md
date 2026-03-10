@@ -16,6 +16,8 @@
 - `POST /v1/auth/login-password` — логин по телефону/паролю.
 - `POST /v1/auth/logout` — logout + revoke сессии.
 - `POST /v1/auth/request-verify` — отправка кода подтверждения для регистрации.
+- `GET /v1/auth/telegram/bind-status` — проверка статуса привязки телефона к Telegram.
+- `POST /v1/auth/telegram/webhook/:secret` — webhook отдельного Telegram auth-бота.
 - `POST /v1/auth/verify-code` — проверка кода подтверждения, создание временной отметки `phone_verifications`.
 - `POST /v1/auth/register-user` — регистрация пользователя (требует предварительно подтверждённый номер).
 - `POST /v1/auth/request-reset` — отправка кода восстановления.
@@ -27,7 +29,10 @@
 - PIN-контур (`unlock/update-pin/has_pin/need_pin`) в текущей версии **не используется**.
 - Верификация регистрации обязательна на бэкенде:
   - Без успешного `verify-code` `register-user` вернёт `403 phone_not_verified`.
-- Для SMS-кодов действует ограничение попыток (`attempts_left`), при исчерпании — `429 too_many_attempts`.
+- Для регистрации используется Telegram bind-flow:
+  - если номер не привязан к Telegram, `request-verify` вернёт `428 TELEGRAM_BIND_REQUIRED` с deep-link на бота;
+  - после `Start` в боте webhook фиксирует связку `phone -> chat_id`, и OTP отправляется адресно в этот чат.
+- Для OTP-кодов действует ограничение попыток (`attempts_left`), при исчерпании — `429 too_many_attempts`.
 
 ## 4. Фронтенд
 

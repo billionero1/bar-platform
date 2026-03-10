@@ -18,7 +18,12 @@ const map: Record<string, string> = {
   invalid_code: 'Неверный код',
   too_many_attempts: 'Слишком много неверных попыток. Запросите новый код.',
   too_many_requests: 'Слишком много попыток. Повторите позже.',
-  phone_not_verified: 'Сначала подтвердите номер кодом из SMS',
+  phone_not_verified: 'Сначала подтвердите номер кодом из Telegram',
+  telegram_bind_required: 'Сначала привяжите Telegram к номеру, затем продолжите регистрацию',
+  TELEGRAM_BIND_REQUIRED: 'Сначала привяжите Telegram к номеру, затем продолжите регистрацию',
+  telegram_bind_unavailable: 'Сервис привязки Telegram временно недоступен',
+  telegram_bind_token_required: 'Токен привязки не передан',
+  telegram_bind_not_found: 'Ссылка привязки недействительна. Запросите новую',
   bad_input: 'Проверьте заполнение полей',
   no_refresh: 'Сессия не найдена. Выполните вход.',
   invalid_refresh: 'Сессия недействительна. Выполните вход.',
@@ -52,6 +57,7 @@ const map: Record<string, string> = {
   shift_date_required: 'Укажите дату смены',
   title_required: 'Укажите название',
   calc_failed: 'Не удалось выполнить расчёт. Проверьте состав карты',
+  otp_delivery_failed: 'Не удалось доставить код подтверждения. Повторите позже',
 
   // новые ошибки для CSRF и валидации пароля
   invalid_csrf_token: 'Недействительный токен безопасности. Перезагрузите страницу.',

@@ -1,23 +1,14 @@
-# VPS Deploy (отдельно от VPN-бота)
+# VPS Deploy (бар-платформа отдельно от VPN-бота)
 
-Этот план учитывает, что на сервере уже живет VPN Telegram-бот в:
-`/opt/vpn-bot/telegram-bot-final`
+Этот runbook под твой текущий кейс:
+- VPN-бот уже работает в `/opt/vpn-bot/telegram-bot-final` на `tools.bar-calc.ru`
+- бар-платформа живет отдельно в `/opt/bar-platform/app`
+- backend бара слушает `127.0.0.1:3001`
+- отдельный PostgreSQL кластер для бара слушает `127.0.0.1:5433`
 
-Новый проект бара поднимается отдельно в:
-`/opt/bar-platform`
+Важно: OTP-бот для бара должен быть отдельным Telegram-ботом с отдельным токеном.
 
-И отдельный PostgreSQL инстанс/кластер — на порту `5433` (не смешивается с БД VPN-бота).
-
-## 0. Можно ли сделать так, как ты описал?
-
-Да, это полностью рабочая схема:
-1. Отдельная директория проекта: `/opt/bar-platform`
-2. Отдельная БД (другой кластер/порт): `127.0.0.1:5433`
-3. Отдельный systemd-сервис backend: `bar-backend.service`
-
-VPN-бот не должен пострадать, если не трогать его директорию, его systemd unit и его порты.
-
-## 1. Подготовка сервера
+## 1. Базовая установка (если еще не ставил)
 
 ```bash
 sudo apt update
@@ -33,109 +24,126 @@ node -v
 npm -v
 ```
 
-## 2. Пользователь и директория проекта
+## 2. Директория проекта
+
+Если уже сделал клон в `/opt/bar-platform/app`, этот шаг пропусти.
 
 ```bash
-sudo useradd -m -s /bin/bash barapp || true
 sudo mkdir -p /opt/bar-platform
-sudo chown -R barapp:barapp /opt/bar-platform
+sudo chown -R "$USER":"$USER" /opt/bar-platform
+
+cd /opt/bar-platform
+git clone https://github.com/billionero1/bar-platform.git app
+cd app
+git checkout master
 ```
 
-Клонирование проекта:
+## 3. Отдельный PostgreSQL для бара (порт 5433)
 
-```bash
-sudo -u barapp git clone <REPO_URL> /opt/bar-platform
-```
-
-Если репозиторий уже есть:
-
-```bash
-sudo -u barapp bash -lc 'cd /opt/bar-platform && git pull'
-```
-
-## 3. Отдельный PostgreSQL кластер для бара (порт 5433)
-
-Проверяем существующие кластеры:
+Проверка кластеров:
 
 ```bash
 sudo pg_lsclusters
 ```
 
-Создаем новый кластер (пример для PostgreSQL 17):
+Создание отдельного кластера (пример для PostgreSQL 17):
 
 ```bash
 sudo pg_createcluster 17 bar --start -- --port=5433
 ```
 
-Если у тебя другая версия PostgreSQL, замени `17` на свою.
-
-Создаем отдельную роль и БД:
+Создание отдельной роли/БД:
 
 ```bash
 sudo -u postgres psql -p 5433 -c "CREATE ROLE bar_platform_user WITH LOGIN PASSWORD 'REPLACE_DB_PASSWORD';"
 sudo -u postgres psql -p 5433 -c "CREATE DATABASE bar_platform OWNER bar_platform_user;"
 ```
 
-## 4. Подготовка .env файлов
+## 4. .env файлы (backend/frontend)
 
-Готовые шаблоны лежат в репозитории:
+Шаблоны в репозитории:
 - `ops/env/backend.vps.env`
 - `ops/env/frontend.vps.env`
 
-Копируем в рабочие .env:
+Копирование:
 
 ```bash
-sudo -u barapp cp /opt/bar-platform/ops/env/backend.vps.env /opt/bar-platform/backend/.env
-sudo -u barapp cp /opt/bar-platform/ops/env/frontend.vps.env /opt/bar-platform/frontend/.env
+cp /opt/bar-platform/app/ops/env/backend.vps.env /opt/bar-platform/app/backend/.env
+cp /opt/bar-platform/app/ops/env/frontend.vps.env /opt/bar-platform/app/frontend/.env
 ```
 
-Редактируем:
+Открыть и заполнить:
 
 ```bash
-sudo -u barapp nano /opt/bar-platform/backend/.env
-sudo -u barapp nano /opt/bar-platform/frontend/.env
+nano /opt/bar-platform/app/backend/.env
+nano /opt/bar-platform/app/frontend/.env
 ```
 
-Права на секреты:
+Критично заполнить в `backend/.env`:
+- `PGPORT=5433`
+- `PGDATABASE`, `PGUSER`, `PGPASSWORD`
+- `JWT_SECRET`
+- `CSRF_SECRET`
+- `FRONTEND_ORIGIN=https://bar-calc.ru,https://www.bar-calc.ru`
+- `OTP_TELEGRAM_BOT_TOKEN` (токен отдельного auth-бота)
+- `OTP_TELEGRAM_BOT_USERNAME` (без `@`)
+- `OTP_TELEGRAM_BIND_SECRET` (длинный случайный секрет)
+
+Важно:
+- `OTP_TELEGRAM_CHAT_IDS` оставь пустым, чтобы исключить широкую рассылку в фиксированные чаты.
+- Не используй токен VPN-бота в бар-платформе.
+
+Права на env:
 
 ```bash
-sudo chown barapp:barapp /opt/bar-platform/backend/.env /opt/bar-platform/frontend/.env
-sudo chmod 600 /opt/bar-platform/backend/.env
-sudo chmod 600 /opt/bar-platform/frontend/.env
+chmod 600 /opt/bar-platform/app/backend/.env /opt/bar-platform/app/frontend/.env
 ```
 
-## 5. Telegram OTP (код в Telegram)
-
-1. Создай бота через `@BotFather`, получи токен.
-2. Напиши боту `/start` (или добавь его в нужный чат/группу и отправь сообщение).
-3. Узнай `chat_id`:
+## 5. Установка зависимостей и сборка frontend
 
 ```bash
-curl -s "https://api.telegram.org/bot<BOT_TOKEN>/getUpdates" | jq .
+cd /opt/bar-platform/app
+npm run setup
+npm --prefix frontend run build
 ```
 
-4. Вставь в `backend/.env`:
-- `OTP_PROVIDER_ORDER=telegram`
-- `OTP_TELEGRAM_BOT_TOKEN=<BOT_TOKEN>`
-- `OTP_TELEGRAM_CHAT_IDS=<CHAT_ID>`
-
-## 6. Установка зависимостей и сборка
+Публикация статики в nginx root:
 
 ```bash
-sudo -u barapp bash -lc 'cd /opt/bar-platform && npm run setup'
-sudo -u barapp bash -lc 'cd /opt/bar-platform/frontend && npm run build'
+sudo mkdir -p /var/www/bar-frontend
+sudo rsync -a --delete /opt/bar-platform/app/frontend/dist/ /var/www/bar-frontend/
+sudo chown -R www-data:www-data /var/www/bar-frontend
 ```
 
-## 7. Проверка env и OTP до старта
+## 6. Проверка env перед стартом
 
 ```bash
-sudo -u barapp bash -lc 'cd /opt/bar-platform/backend && NODE_ENV=production npm run env:check'
-sudo -u barapp bash -lc 'cd /opt/bar-platform/backend && NODE_ENV=production npm run otp:probe -- --env .env --phone 79991234567 --purpose verify'
+cd /opt/bar-platform/app/backend
+NODE_ENV=production npm run env:check
 ```
 
-## 8. Systemd сервис backend
+## 7. Webhook для Telegram auth-бота
 
-Создай файл `/etc/systemd/system/bar-backend.service`:
+Webhook должен идти в backend бара (не в VPN-бот):
+
+```bash
+BOT_TOKEN='PASTE_AUTH_BOT_TOKEN'
+BIND_SECRET='PASTE_BIND_SECRET_FROM_BACKEND_ENV'
+curl -sS -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
+  -d "url=https://bar-calc.ru/v1/auth/telegram/webhook/${BIND_SECRET}" | jq .
+```
+
+Проверить:
+
+```bash
+curl -sS "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo" | jq .
+```
+
+Ожидаемо в `url` будет `https://bar-calc.ru/v1/auth/telegram/webhook/...`.
+
+## 8. Systemd для backend бара
+
+Создай `/etc/systemd/system/bar-backend.service`:
 
 ```ini
 [Unit]
@@ -144,9 +152,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=barapp
-WorkingDirectory=/opt/bar-platform/backend
-EnvironmentFile=/opt/bar-platform/backend/.env
+User=root
+WorkingDirectory=/opt/bar-platform/app/backend
+EnvironmentFile=/opt/bar-platform/app/backend/.env
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=3
@@ -155,7 +163,7 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-Включи и запусти:
+Применить:
 
 ```bash
 sudo systemctl daemon-reload
@@ -164,61 +172,52 @@ sudo systemctl restart bar-backend
 sudo systemctl status bar-backend --no-pager
 ```
 
-## 9. Nginx (frontend + /v1 proxy)
-
-Скопируй шаблон:
+Логи:
 
 ```bash
-sudo cp /opt/bar-platform/ops/bar-frontend.nginx.sample /etc/nginx/sites-available/bar-platform
+sudo journalctl -u bar-backend -n 200 --no-pager
 ```
 
-Отредактируй домен(ы), затем:
+## 9. Nginx
+
+У тебя уже есть `bar-calc.ru` и `tools.bar-calc.ru` как отдельные server blocks. Это корректно.
+
+Проверка актуального конфига:
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/bar-platform /etc/nginx/sites-enabled/bar-platform
-sudo nginx -t
-sudo systemctl reload nginx
+sudo nginx -T | grep -nE 'server_name|proxy_pass|bar-calc\.ru|tools\.bar-calc\.ru'
 ```
 
-Сертификат (если нужен):
+Требование для бара:
+- `bar-calc.ru` должен раздавать `/var/www/bar-frontend`
+- `location /v1/` должен проксировать в `http://127.0.0.1:3001`
+
+## 10. Как теперь пользователь получает OTP в Telegram
+
+1. Пользователь вводит телефон в регистрации.
+2. Backend возвращает ссылку привязки к отдельному auth-боту.
+3. Пользователь открывает ссылку `https://t.me/<auth_bot>?start=bind_<token>` и жмет `Start`.
+4. Telegram отправляет update на webhook backend бара.
+5. Backend связывает `phone -> chat_id`.
+6. Пользователь нажимает в UI "Я нажал Start, проверить".
+7. После подтверждения backend отправляет OTP-код в этот же чат.
+
+Итог: код приходит адресно конкретному пользователю, а не "всем".
+
+## 11. Быстрый smoke-check после запуска
+
+- Открыть `https://bar-calc.ru/register`
+- Ввести номер и имя
+- Нажать ссылку в Telegram, нажать `Start`
+- Вернуться и нажать "Я нажал Start, проверить"
+- Убедиться, что код пришел в чат auth-бота
+
+## 12. Ротация секретов (не каждый день)
+
+Команда запускается только при первичной настройке/плановой ротации:
 
 ```bash
-sudo certbot --nginx -d bar.example.com -d www.bar.example.com
+npm --prefix backend run secrets:rotate -- --env .env --in-place
 ```
 
-## 10. Публикация frontend
-
-```bash
-sudo mkdir -p /var/www/bar-frontend
-sudo rsync -a --delete /opt/bar-platform/frontend/dist/ /var/www/bar-frontend/
-sudo chown -R www-data:www-data /var/www/bar-frontend
-```
-
-## 11. Деплой одной командой (дальше)
-
-В проекте есть `ops/deploy.sh` (по умолчанию работает с `/opt/bar-platform`).
-
-Пример:
-
-```bash
-cd /opt/bar-platform
-OTP_TEST_PHONE=79991234567 ./ops/deploy.sh
-```
-
-Если основной код у тебя не в `master`, укажи ветку явно:
-
-```bash
-cd /opt/bar-platform
-DEPLOY_BRANCH=dev-local OTP_TEST_PHONE=79991234567 ./ops/deploy.sh
-```
-
-Важно: `DEPLOY_BRANCH` должна существовать на GitHub (`origin/<branch>`), иначе скрипт остановится с ошибкой.
-
-## 12. Проверка после запуска
-
-```bash
-curl -fsS https://bar.example.com/healthz
-curl -fsS https://bar.example.com/v1/auth/csrf-token
-```
-
-Если оба ответа корректны, backend и nginx связаны правильно.
+Это не команда для обычного использования платформы сотрудниками.
