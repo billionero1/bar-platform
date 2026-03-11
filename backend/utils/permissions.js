@@ -44,9 +44,6 @@ const ROLE_PERMISSION_MATRIX = {
     'tests:analytics_own',
     'tests:analytics_team',
     'tests:manage',
-
-    'kpi:view',
-    'kpi:edit',
   ],
 
   staff: [
@@ -75,8 +72,6 @@ const ROLE_PERMISSION_MATRIX = {
 
     'tests:take',
     'tests:analytics_own',
-
-    'kpi:view',
   ],
 
   solo: [
@@ -117,9 +112,6 @@ const ROLE_PERMISSION_MATRIX = {
     'tests:analytics_own',
     'tests:analytics_team',
     'tests:manage',
-
-    'kpi:view',
-    'kpi:edit',
   ],
 };
 

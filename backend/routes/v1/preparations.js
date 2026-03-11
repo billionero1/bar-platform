@@ -1,6 +1,7 @@
 import express from 'express';
 import { query as db, pool } from '../../db.js';
 import { requirePermission } from '../../utils/permissions.js';
+import { convertAmountLoose, normalizeUnit } from '../../utils/units.js';
 
 const r = express.Router();
 
@@ -13,7 +14,7 @@ function normalizeComponents(components = []) {
     type: c?.type,
     id: Number(c?.id),
     amount: Number(c?.amount),
-    unit: c?.unit ?? null,
+    unit: normalizeUnit(c?.unit),
   }));
 }
 
@@ -76,6 +77,7 @@ async function calcPreparation(prepId, estId, visited = new Set()) {
   if (prepQ.rowCount === 0) return null;
 
   const prep = prepQ.rows[0];
+  const prepYieldUnit = normalizeUnit(prep.yield_unit);
 
   const compQ = await db(
     `SELECT id, ingredient_id, nested_preparation_id, amount, unit
@@ -99,14 +101,20 @@ async function calcPreparation(prepId, estId, visited = new Set()) {
       if (!i) throw new Error('ingredient_not_found');
 
       const unitCost = i.package_volume > 0 ? i.package_cost / i.package_volume : 0;
-      const partCost = unitCost * Number(c.amount);
+      const ingredientUnit = normalizeUnit(i.unit);
+      const sourceUnit = normalizeUnit(c.unit) || ingredientUnit;
+      const amount = asFiniteNumber(c.amount) || 0;
+      const amountForCost = convertAmountLoose(amount, sourceUnit, ingredientUnit);
+      if (amountForCost === null) throw new Error('unit_mismatch');
+
+      const partCost = unitCost * amountForCost;
       cost += partCost;
       breakdown.push({
         type: 'ingredient',
         id: i.id,
         name: i.name,
-        amount: c.amount,
-        unit: c.unit || i.unit,
+        amount,
+        unit: sourceUnit || ingredientUnit,
         cost: +partCost.toFixed(4),
       });
     } else {
@@ -114,19 +122,24 @@ async function calcPreparation(prepId, estId, visited = new Set()) {
       if (!sub) throw new Error('nested_preparation_not_found');
 
       const subYieldValue = asFiniteNumber(sub.yield_value) || 0;
+      const subYieldUnit = normalizeUnit(sub.yield_unit);
+      const sourceUnit = normalizeUnit(c.unit) || subYieldUnit;
       const usedAmount = asFiniteNumber(c.amount) || 0;
+      const usedAmountForCost = convertAmountLoose(usedAmount, sourceUnit, subYieldUnit);
+      if (usedAmountForCost === null) throw new Error('unit_mismatch');
+
       const subUnitCost = subYieldValue > 0 ? sub.cost / subYieldValue : 0;
-      const partCost = subUnitCost * Number(c.amount);
+      const partCost = subUnitCost * usedAmountForCost;
       cost += partCost;
 
-      const ratio = subYieldValue > 0 ? usedAmount / subYieldValue : 0;
+      const ratio = subYieldValue > 0 ? usedAmountForCost / subYieldValue : 0;
       const expanded = ratio > 0 ? scaleBreakdown(sub.breakdown, ratio) : [];
       breakdown.push({
         type: 'preparation',
         id: sub.id,
         name: sub.title,
-        amount: c.amount,
-        unit: c.unit || sub.yield_unit,
+        amount: usedAmount,
+        unit: sourceUnit || subYieldUnit,
         cost: +partCost.toFixed(4),
         ...(expanded.length ? { expanded } : {}),
       });
@@ -137,7 +150,7 @@ async function calcPreparation(prepId, estId, visited = new Set()) {
     id: prep.id,
     title: prep.title,
     yield_value: prep.yield_value,
-    yield_unit: prep.yield_unit,
+    yield_unit: prepYieldUnit || prep.yield_unit || null,
     alt_volume: prep.alt_volume,
     cost: +cost.toFixed(4),
     cost_per_unit: prep.yield_value > 0 ? +(cost / prep.yield_value).toFixed(4) : null,
@@ -165,7 +178,7 @@ r.get('/', requirePermission('preparations:read'), async (req, res) => {
         id: p.id,
         title: p.title,
         yield_value: p.yield_value,
-        yield_unit: p.yield_unit,
+        yield_unit: normalizeUnit(p.yield_unit) || p.yield_unit || null,
         alt_volume: p.alt_volume,
         cost_per_unit: calc?.cost_per_unit ?? null,
       });
@@ -186,6 +199,7 @@ r.post('/', requirePermission('preparations:create'), async (req, res) => {
 
     const { title, yield_value, yield_unit, alt_volume, components } = req.body || {};
     const normalizedComponents = normalizeComponents(components);
+    const normalizedYieldUnit = normalizeUnit(yield_unit);
 
     if (!title?.trim() || normalizedComponents.length === 0) {
       return res.status(400).json({ error: 'invalid_payload' });
@@ -212,7 +226,7 @@ r.post('/', requirePermission('preparations:create'), async (req, res) => {
       `INSERT INTO preparations(establishment_id, title, yield_value, yield_unit, alt_volume)
        VALUES ($1,$2,$3,$4,$5)
        RETURNING id`,
-      [est, title.trim(), yield_value ?? null, yield_unit ?? null, parsedAltVolume]
+      [est, title.trim(), yield_value ?? null, normalizedYieldUnit, parsedAltVolume]
     );
     const prepId = prepIns.rows[0].id;
 
@@ -383,6 +397,9 @@ r.get('/:id/calc', requirePermission('preparations:calc'), async (req, res) => {
     });
   } catch (e) {
     console.error('preparations.calc error', e);
+    if (e?.message === 'unit_mismatch') {
+      return res.status(400).json({ error: 'unit_mismatch' });
+    }
     return res.status(400).json({ error: 'calc_failed' });
   }
 });

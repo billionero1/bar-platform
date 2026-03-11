@@ -11,6 +11,32 @@ function asString(value: unknown): string | null {
   return trimmed.length ? trimmed : null;
 }
 
+const UNIT_ALIASES: Record<string, string> = {
+  мл: 'мл',
+  ml: 'мл',
+  l: 'л',
+  л: 'л',
+  cl: 'cl',
+  г: 'г',
+  g: 'г',
+  кг: 'кг',
+  kg: 'кг',
+  шт: 'шт',
+  pcs: 'шт',
+  pc: 'шт',
+  piece: 'шт',
+  pieces: 'шт',
+  unit: 'шт',
+  units: 'шт',
+};
+
+function normalizeUnit(value: unknown): string | null {
+  const raw = asString(value);
+  if (!raw) return null;
+  const key = raw.toLowerCase();
+  return UNIT_ALIASES[key] || raw;
+}
+
 function apiBase(): string {
   const envBase = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
   if (envBase) return envBase;
@@ -241,31 +267,6 @@ export type QuizSummary = {
   }>;
 };
 
-export type KpiRow = {
-  id: number;
-  shift_date: string;
-  guests_count: number;
-  orders_count: number;
-  revenue: number;
-  writeoff_cost: number;
-  avg_ticket: number;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type KpiSummary = {
-  rows: KpiRow[];
-  totals: {
-    shifts: number;
-    guests_total: number;
-    orders_total: number;
-    revenue_total: number;
-    writeoff_total: number;
-    avg_ticket_total: number;
-  };
-};
-
 export type MixComponent = {
   type: 'ingredient' | 'preparation';
   id: number;
@@ -309,7 +310,7 @@ function normalizeIngredient(row: any): Ingredient {
     name: String(row.name || ''),
     packVolume: asNumber(row.packVolume),
     packCost: asNumber(row.packCost),
-    unit: asString(row.unit),
+    unit: normalizeUnit(row.unit),
     costPerUnit: asNumber(row.costPerUnit),
   };
 }
@@ -319,7 +320,7 @@ function normalizePreparationSummary(row: any): PreparationSummary {
     id: Number(row.id),
     title: String(row.title || ''),
     yieldValue: asNumber(row.yield_value),
-    yieldUnit: asString(row.yield_unit),
+    yieldUnit: normalizeUnit(row.yield_unit),
     altVolume: asNumber(row.alt_volume),
     costPerUnit: asNumber(row.cost_per_unit),
   };
@@ -331,7 +332,7 @@ function normalizePreparationBreakdown(row: any): PreparationBreakdownItem {
     id: Number(row?.id),
     name: String(row?.name || ''),
     amount: asNumber(row?.amount) || 0,
-    unit: asString(row?.unit),
+    unit: normalizeUnit(row?.unit),
     cost: asNumber(row?.cost) || 0,
     expanded: Array.isArray(row?.expanded)
       ? row.expanded.map((item: any) => normalizePreparationBreakdown(item))
@@ -386,7 +387,7 @@ function normalizeCocktailSummary(row: any): CocktailSummary {
     title: String(row.title || ''),
     category: String(row.category || 'cocktail'),
     outputValue: asNumber(row.output_value),
-    outputUnit: asString(row.output_unit),
+    outputUnit: normalizeUnit(row.output_unit),
     garnish: asString(row.garnish),
     serving: asString(row.serving),
     photoUrl: asString(row.photo_url),
@@ -401,7 +402,7 @@ function normalizeCocktailCalc(row: any): CocktailCalc {
     title: String(row.title || ''),
     category: String(row.category || 'cocktail'),
     outputValue: asNumber(row.output_value),
-    outputUnit: asString(row.output_unit),
+    outputUnit: normalizeUnit(row.output_unit),
     garnish: asString(row.garnish),
     serving: asString(row.serving),
     method: asString(row.method),
@@ -417,7 +418,7 @@ function normalizeCocktailCalc(row: any): CocktailCalc {
           id: Number(b.id),
           name: String(b.name || ''),
           amount: asNumber(b.amount) || 0,
-          unit: asString(b.unit),
+          unit: normalizeUnit(b.unit),
           cost: asNumber(b.cost) || 0,
         }))
       : [],
@@ -898,35 +899,6 @@ export async function deleteQuizQuestion(id: number): Promise<void> {
 
 export async function getQuizSummary(): Promise<QuizSummary> {
   return api<QuizSummary>('/v1/analytics/quiz-summary', { method: 'GET' });
-}
-
-export async function getKpiSummary(params?: { from?: string; to?: string }): Promise<KpiSummary> {
-  const search = new URLSearchParams();
-  if (params?.from) search.set('from', params.from);
-  if (params?.to) search.set('to', params.to);
-  const suffix = search.toString() ? `?${search.toString()}` : '';
-  return api<KpiSummary>(`/v1/analytics/kpi${suffix}`, { method: 'GET' });
-}
-
-export async function saveKpi(payload: {
-  shiftDate: string;
-  guestsCount: number;
-  ordersCount: number;
-  revenue: number;
-  writeoffCost: number;
-  notes?: string;
-}): Promise<void> {
-  await api('/v1/analytics/kpi', {
-    method: 'POST',
-    body: JSON.stringify({
-      shift_date: payload.shiftDate,
-      guests_count: payload.guestsCount,
-      orders_count: payload.ordersCount,
-      revenue: payload.revenue,
-      writeoff_cost: payload.writeoffCost,
-      notes: payload.notes || '',
-    }),
-  });
 }
 
 export async function downloadProtectedCsv(path: string, filename: string): Promise<void> {

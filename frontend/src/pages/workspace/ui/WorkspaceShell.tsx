@@ -21,7 +21,6 @@ import {
   deleteTrainingTopic,
   downloadProtectedCsv,
   getCocktailCalc,
-  getKpiSummary,
   getPreparationCalc,
   getQuizSummary,
   listCocktails,
@@ -36,7 +35,6 @@ import {
   listTrainingTopics,
   revokeInvite,
   revokeTeamMember,
-  saveKpi,
   submitQuizAttempt,
   uploadCocktailPhoto,
   updateIngredient,
@@ -51,7 +49,6 @@ import {
   type CreatePreparationPayload,
   type DocumentItem,
   type Ingredient,
-  type KpiSummary,
   type LearningTopic,
   type OperationRequest,
   type OperationRequestTemplate,
@@ -82,6 +79,7 @@ type WorkspaceShellProps = {
 type DraftComponent = {
   type: 'ingredient' | 'preparation';
   id: string;
+  query: string;
   amount: string;
   unit: string;
 };
@@ -107,6 +105,46 @@ type QuizQuestionDraft = {
 };
 
 const REQUEST_STATUSES_FOR_MANAGER = ['submitted', 'in_progress', 'approved', 'rejected', 'done'];
+const UNIT_OPTIONS = ['мл', 'л', 'г', 'кг', 'шт'] as const;
+
+type UnitOption = (typeof UNIT_OPTIONS)[number];
+
+const UNIT_LABELS: Record<UnitOption, string> = {
+  мл: 'мл',
+  л: 'л',
+  г: 'г',
+  кг: 'кг',
+  шт: 'шт',
+};
+
+const UNIT_ALIASES: Record<string, UnitOption> = {
+  мл: 'мл',
+  ml: 'мл',
+  л: 'л',
+  l: 'л',
+  cl: 'мл',
+  г: 'г',
+  g: 'г',
+  кг: 'кг',
+  kg: 'кг',
+  шт: 'шт',
+  pcs: 'шт',
+  pc: 'шт',
+  piece: 'шт',
+  pieces: 'шт',
+  unit: 'шт',
+  units: 'шт',
+};
+
+function normalizeUnitOption(raw: string | null | undefined): UnitOption | '' {
+  const key = String(raw || '').trim().toLowerCase();
+  if (!key) return '';
+  return UNIT_ALIASES[key] || '';
+}
+
+function defaultComponentUnit(type: DraftComponent['type']): UnitOption {
+  return type === 'preparation' ? 'л' : 'мл';
+}
 const MODULE_READ_PERMISSION: Record<WorkspaceModuleId, string | null> = {
   dashboard: 'dashboard:view',
   ingredients: 'ingredients:read',
@@ -193,8 +231,9 @@ function defaultDraftComponent(): DraftComponent {
   return {
     type: 'ingredient',
     id: '',
+    query: '',
     amount: '',
-    unit: '',
+    unit: defaultComponentUnit('ingredient'),
   };
 }
 
@@ -231,7 +270,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   const [learningTopics, setLearningTopics] = useState<LearningTopic[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [quizSummary, setQuizSummary] = useState<QuizSummary | null>(null);
-  const [kpiSummary, setKpiSummary] = useState<KpiSummary | null>(null);
 
   const [selectedPrepId, setSelectedPrepId] = useState<number | null>(null);
   const [prepCalc, setPrepCalc] = useState<PreparationCalc | null>(null);
@@ -251,7 +289,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     name: '',
     packVolume: '',
     packCost: '',
-    unit: '',
+    unit: 'л',
   });
   const [editingIngredientId, setEditingIngredientId] = useState<number | null>(null);
 
@@ -308,14 +346,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   });
   const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
   const [lastInviteInfo, setLastInviteInfo] = useState<string | null>(null);
-  const [kpiDraft, setKpiDraft] = useState({
-    shiftDate: new Date().toISOString().slice(0, 10),
-    guestsCount: '',
-    ordersCount: '',
-    revenue: '',
-    writeoffCost: '',
-    notes: '',
-  });
 
   const [newEstablishmentName, setNewEstablishmentName] = useState('');
 
@@ -360,8 +390,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   const canTakeTests = can('tests:take');
   const canViewTeamAnalytics = can('tests:analytics_team');
   const canManageTests = can('tests:manage');
-  const canViewKpi = can('kpi:view');
-  const canEditKpi = can('kpi:edit');
 
   const filteredIngredients = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -475,7 +503,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
         setLastInviteLink(null);
         setLastInviteInfo(null);
         setQuizSummary(null);
-        setKpiSummary(null);
         return;
       }
 
@@ -491,7 +518,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
         topicsPromise,
         quizQuestionsPromise,
         canTakeTests ? getQuizSummary() : Promise.resolve<QuizSummary | null>(null),
-        canViewKpi ? getKpiSummary() : Promise.resolve<KpiSummary | null>(null),
       ]);
 
       const readValue = <T,>(index: number, fallback: T): T => {
@@ -511,7 +537,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       setLearningTopics(readValue(8, []));
       setQuizQuestions(readValue(9, []));
       setQuizSummary(readValue(10, null));
-      setKpiSummary(readValue(11, null));
     } catch (e) {
       setWorkspaceError(rusify(e));
     } finally {
@@ -529,7 +554,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     canManageTests,
     canManageTraining,
     canTakeTests,
-    canViewKpi,
     hasEstablishment,
   ]);
 
@@ -581,7 +605,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       name: '',
       packVolume: '',
       packCost: '',
-      unit: '',
+      unit: 'л',
     });
     setEditingIngredientId(null);
   }, []);
@@ -655,7 +679,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
           type: row.type,
           id,
           amount,
-          unit: row.unit.trim() || null,
+          unit: normalizeUnitOption(row.unit) || null,
         };
       })
       .filter((row) => Number.isFinite(row.id) && row.amount !== null && row.amount > 0) as Array<{
@@ -670,7 +694,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     return {
       title,
       yieldValue: parseNumberInput(preparationDraft.yieldValue),
-      yieldUnit: preparationDraft.yieldUnit.trim() || null,
+      yieldUnit: normalizeUnitOption(preparationDraft.yieldUnit) || null,
       altVolume: parseNumberInput(preparationDraft.altVolume),
       components,
     };
@@ -688,7 +712,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
           type: row.type,
           id,
           amount,
-          unit: row.unit.trim() || null,
+          unit: normalizeUnitOption(row.unit) || null,
         };
       })
       .filter((row) => Number.isFinite(row.id) && row.amount !== null && row.amount > 0) as Array<{
@@ -704,7 +728,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       title,
       category: cocktailDraft.category,
       outputValue: parseNumberInput(cocktailDraft.outputValue),
-      outputUnit: cocktailDraft.outputUnit.trim() || null,
+      outputUnit: normalizeUnitOption(cocktailDraft.outputUnit) || null,
       garnish: cocktailDraft.garnish.trim() || null,
       serving: cocktailDraft.serving.trim() || null,
       method: cocktailDraft.method.trim() || null,
@@ -725,7 +749,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       name,
       packVolume: parseNumberInput(ingredientDraft.packVolume),
       packCost: parseNumberInput(ingredientDraft.packCost),
-      unit: ingredientDraft.unit.trim() || null,
+      unit: normalizeUnitOption(ingredientDraft.unit) || null,
     };
 
     const actionKey = editingIngredientId ? 'ingredient:update' : 'ingredient:create';
@@ -1066,7 +1090,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
 
     const draftRequests = requests.filter((row) => row.status === 'draft').length;
     const activeRequests = requests.filter((row) => row.status === 'submitted' || row.status === 'in_progress').length;
-    const kpiTotals = kpiSummary?.totals;
 
     return (
       <div className="wsv-grid">
@@ -1093,31 +1116,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
           />
         </section>
 
-        {canViewKpi && kpiTotals ? (
-          <section className="wsv-metrics-grid">
-            <MetricCard
-              label="Выручка"
-              value={formatMoney(Number(kpiTotals.revenue_total || 0))}
-              note={`За смен: ${kpiTotals.shifts || 0}`}
-            />
-            <MetricCard
-              label="Гости"
-              value={String(kpiTotals.guests_total || 0)}
-              note="Суммарно по данным KPI"
-            />
-            <MetricCard
-              label="Заказы"
-              value={String(kpiTotals.orders_total || 0)}
-              note={`Средний чек: ${formatMoney(Number(kpiTotals.avg_ticket_total || 0))}`}
-            />
-            <MetricCard
-              label="Списания"
-              value={formatMoney(Number(kpiTotals.writeoff_total || 0))}
-              note="Потери по сменам"
-            />
-          </section>
-        ) : null}
-
         <SectionCard title="Быстрые действия">
           <div className="wsv-actions">
             {canReadIngredients ? (
@@ -1142,77 +1140,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
             ) : null}
           </div>
         </SectionCard>
-
-        {canEditKpi ? (
-          <SectionCard title="KPI текущей смены">
-            <div className="wsv-form-grid">
-              <label>
-                <span>Дата смены</span>
-                <input
-                  type="date"
-                  value={kpiDraft.shiftDate}
-                  onChange={(e) => setKpiDraft((prev) => ({ ...prev, shiftDate: e.target.value }))}
-                />
-              </label>
-              <label>
-                <span>Гостей</span>
-                <input
-                  value={kpiDraft.guestsCount}
-                  onChange={(e) => setKpiDraft((prev) => ({ ...prev, guestsCount: e.target.value }))}
-                />
-              </label>
-              <label>
-                <span>Заказов</span>
-                <input
-                  value={kpiDraft.ordersCount}
-                  onChange={(e) => setKpiDraft((prev) => ({ ...prev, ordersCount: e.target.value }))}
-                />
-              </label>
-              <label>
-                <span>Выручка</span>
-                <input
-                  value={kpiDraft.revenue}
-                  onChange={(e) => setKpiDraft((prev) => ({ ...prev, revenue: e.target.value }))}
-                />
-              </label>
-              <label>
-                <span>Списания</span>
-                <input
-                  value={kpiDraft.writeoffCost}
-                  onChange={(e) => setKpiDraft((prev) => ({ ...prev, writeoffCost: e.target.value }))}
-                />
-              </label>
-              <label>
-                <span>Комментарий</span>
-                <input
-                  value={kpiDraft.notes}
-                  onChange={(e) => setKpiDraft((prev) => ({ ...prev, notes: e.target.value }))}
-                />
-              </label>
-            </div>
-            <div className="wsv-row">
-              <button
-                type="button"
-                className="wsv-btn wsv-btn--primary"
-                disabled={isBusy('kpi:save')}
-                onClick={() => {
-                  void runMutate('kpi:save', async () => {
-                    await saveKpi({
-                      shiftDate: kpiDraft.shiftDate,
-                      guestsCount: Number(parseNumberInput(kpiDraft.guestsCount) || 0),
-                      ordersCount: Number(parseNumberInput(kpiDraft.ordersCount) || 0),
-                      revenue: Number(parseNumberInput(kpiDraft.revenue) || 0),
-                      writeoffCost: Number(parseNumberInput(kpiDraft.writeoffCost) || 0),
-                      notes: kpiDraft.notes,
-                    });
-                  });
-                }}
-              >
-                {isBusy('kpi:save') ? 'Сохраняю KPI…' : 'Сохранить KPI'}
-              </button>
-            </div>
-          </SectionCard>
-        ) : null}
 
         <SectionCard title="Ближайший фокус смены">
           <ul className="wsv-list">
@@ -1269,11 +1196,16 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
               </label>
               <label>
                 <span>Единица</span>
-                <input
-                  value={ingredientDraft.unit}
+                <select
+                  value={normalizeUnitOption(ingredientDraft.unit) || 'л'}
                   onChange={(e) => setIngredientDraft((prev) => ({ ...prev, unit: e.target.value }))}
-                  placeholder="л / кг / шт"
-                />
+                >
+                  {UNIT_OPTIONS.map((unit) => (
+                    <option value={unit} key={unit}>
+                      {UNIT_LABELS[unit]}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
@@ -1325,7 +1257,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                                 name: row.name,
                                 packVolume: row.packVolume?.toString() || '',
                                 packCost: row.packCost?.toString() || '',
-                                unit: row.unit || '',
+                                unit: normalizeUnitOption(row.unit) || 'л',
                               });
                             }}
                           >
@@ -1379,30 +1311,78 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     return (
       <div className="wsv-stack">
         {components.map((component, index) => {
-          const source = component.type === 'ingredient' ? ingredients : preparations.map((item) => ({
-            id: item.id,
-            name: item.title,
-          }));
+          const source = component.type === 'ingredient'
+            ? ingredients.map((item) => ({
+                id: item.id,
+                name: item.name,
+                unit: normalizeUnitOption(item.unit) || defaultComponentUnit('ingredient'),
+              }))
+            : preparations.map((item) => ({
+                id: item.id,
+                name: item.title,
+                unit: normalizeUnitOption(item.yieldUnit) || defaultComponentUnit('preparation'),
+              }));
+
+          const selectedSource = source.find((row) => String(row.id) === component.id) || null;
+          const selectedUnit = normalizeUnitOption(component.unit) || defaultComponentUnit(component.type);
+          const needle = component.query.trim().toLowerCase();
+          const suggestions = needle
+            ? source
+                .filter((row) => row.name.toLowerCase().includes(needle))
+                .slice(0, 8)
+            : [];
+          const showSuggestions = suggestions.length > 0 && (!selectedSource || selectedSource.name !== component.query);
 
           return (
             <div className="wsv-component" key={`component-${index}`}>
               <select
                 value={component.type}
-                onChange={(e) => updateRow(index, { type: e.target.value as 'ingredient' | 'preparation', id: '' })}
+                onChange={(e) => {
+                  const nextType = e.target.value as 'ingredient' | 'preparation';
+                  updateRow(index, {
+                    type: nextType,
+                    id: '',
+                    query: '',
+                    unit: defaultComponentUnit(nextType),
+                  });
+                }}
               >
                 <option value="ingredient">Ингредиент</option>
                 <option value="preparation">Заготовка</option>
               </select>
 
-              <select
-                value={component.id}
-                onChange={(e) => updateRow(index, { id: e.target.value })}
-              >
-                <option value="">Выбери элемент</option>
-                {source.map((row: any) => (
-                  <option key={row.id} value={String(row.id)}>{row.name}</option>
-                ))}
-              </select>
+              <div className="wsv-component__source">
+                <input
+                  value={component.query}
+                  onChange={(e) => updateRow(index, { query: e.target.value, id: '' })}
+                  placeholder={component.type === 'ingredient' ? 'Начни вводить ингредиент' : 'Начни вводить заготовку'}
+                />
+                {showSuggestions ? (
+                  <div className="wsv-suggest">
+                    {suggestions.map((row) => (
+                      <button
+                        type="button"
+                        key={`${component.type}-${row.id}`}
+                        className="wsv-suggest__item"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          updateRow(index, {
+                            id: String(row.id),
+                            query: row.name,
+                            unit: row.unit,
+                          });
+                        }}
+                      >
+                        <span>{row.name}</span>
+                        <small>{UNIT_LABELS[row.unit]}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {component.query && !component.id ? (
+                  <div className="wsv-component__hint">Выбери элемент из выпадающего списка.</div>
+                ) : null}
+              </div>
 
               <input
                 value={component.amount}
@@ -1410,11 +1390,16 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 placeholder="Количество"
               />
 
-              <input
-                value={component.unit}
+              <select
+                value={selectedUnit}
                 onChange={(e) => updateRow(index, { unit: e.target.value })}
-                placeholder="Ед. изм"
-              />
+              >
+                {UNIT_OPTIONS.map((unit) => (
+                  <option value={unit} key={unit}>
+                    {UNIT_LABELS[unit]}
+                  </option>
+                ))}
+              </select>
 
               <button
                 type="button"
@@ -1490,11 +1475,16 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
             </label>
             <label>
               <span>Единица выхода</span>
-              <input
-                value={preparationDraft.yieldUnit}
+              <select
+                value={normalizeUnitOption(preparationDraft.yieldUnit) || 'л'}
                 onChange={(e) => setPreparationDraft((prev) => ({ ...prev, yieldUnit: e.target.value }))}
-                placeholder="л"
-              />
+              >
+                {UNIT_OPTIONS.map((unit) => (
+                  <option value={unit} key={unit}>
+                    {UNIT_LABELS[unit]}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               <span>Объём до фильтрации (опц.)</span>
@@ -1773,11 +1763,16 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
             </label>
             <label>
               <span>Ед. выхода</span>
-              <input
-                value={cocktailDraft.outputUnit}
+              <select
+                value={normalizeUnitOption(cocktailDraft.outputUnit) || 'л'}
                 onChange={(e) => setCocktailDraft((prev) => ({ ...prev, outputUnit: e.target.value }))}
-                placeholder="л"
-              />
+              >
+                {UNIT_OPTIONS.map((unit) => (
+                  <option value={unit} key={unit}>
+                    {UNIT_LABELS[unit]}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               <span>Подача</span>
@@ -2934,22 +2929,30 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по текущему модулю"
+              placeholder="Поиск"
               className="wsv-search"
             />
 
-            <button type="button" className="wsv-btn" onClick={toggleTheme}>
-              {theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            <button
+              type="button"
+              className="wsv-icon-btn"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+              aria-label={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            >
+              {theme === 'dark' ? '☀' : '◐'}
             </button>
 
             <button
               type="button"
-              className="wsv-btn"
+              className="wsv-icon-btn"
+              title="Выйти"
+              aria-label="Выйти"
               onClick={() => {
                 void logout();
               }}
             >
-              Выйти
+              ↪
             </button>
           </div>
         </header>

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "lint": "node --check index.js config.js db.js middleware/requireAuth.js routes/v1/auth.js routes/v1/ingredients.js routes/v1/preparations.js routes/v1/cocktails.js routes/v1/forms.js routes/v1/team.js routes/v1/docs.js routes/v1/analytics.js routes/v1/training.js utils/sessionUtils.js utils/permissions.js utils/csv.js utils/rateLimit.js utils/quiz.js utils/storage.js utils/trainingSeed.js utils/defaultTrainingContent.js utils/envPolicy.js services/otpDelivery.js scripts/check_env.mjs scripts/rotate_secrets.mjs scripts/otp_probe.mjs",
+    "lint": "node --check index.js config.js db.js middleware/requireAuth.js routes/v1/auth.js routes/v1/ingredients.js routes/v1/preparations.js routes/v1/cocktails.js routes/v1/forms.js routes/v1/team.js routes/v1/docs.js routes/v1/analytics.js routes/v1/training.js utils/sessionUtils.js utils/permissions.js utils/csv.js utils/rateLimit.js utils/quiz.js utils/storage.js utils/trainingSeed.js utils/defaultTrainingContent.js utils/envPolicy.js utils/units.js services/otpDelivery.js scripts/check_env.mjs scripts/rotate_secrets.mjs scripts/otp_probe.mjs",
     "env:check": "node scripts/check_env.mjs --env .env",
     "secrets:rotate": "node scripts/rotate_secrets.mjs --env .env",
     "otp:probe": "node scripts/otp_probe.mjs --env .env",

@@ -3,6 +3,7 @@ import path from 'path';
 import multer from 'multer';
 import { pool, query as db } from '../../db.js';
 import { requirePermission } from '../../utils/permissions.js';
+import { convertAmountLoose, normalizeUnit } from '../../utils/units.js';
 import {
   buildCocktailPhotoUrl,
   deleteObject,
@@ -104,7 +105,7 @@ function normalizeComponents(components = []) {
     type: c?.type,
     id: asFiniteNumber(c?.id),
     amount: asFiniteNumber(c?.amount),
-    unit: typeof c?.unit === 'string' ? c.unit.trim() || null : null,
+    unit: normalizeUnit(c?.unit),
   }));
 }
 
@@ -121,6 +122,7 @@ async function calcPreparation(prepId, estId, visited = new Set()) {
   if (!prepQ.rowCount) return null;
 
   const prep = prepQ.rows[0];
+  const prepYieldUnit = normalizeUnit(prep.yield_unit);
   const compQ = await db(
     `SELECT ingredient_id, nested_preparation_id, amount, unit
        FROM preparation_components
@@ -132,7 +134,7 @@ async function calcPreparation(prepId, estId, visited = new Set()) {
   for (const c of compQ.rows) {
     if (c.ingredient_id) {
       const iQ = await db(
-        `SELECT package_volume, package_cost
+        `SELECT package_volume, package_cost, unit
            FROM ingredients
           WHERE id=$1 AND establishment_id=$2`,
         [c.ingredient_id, estId]
@@ -142,22 +144,32 @@ async function calcPreparation(prepId, estId, visited = new Set()) {
       const packVolume = asFiniteNumber(i.package_volume) ?? 0;
       const packCost = asFiniteNumber(i.package_cost) ?? 0;
       const unitCost = packVolume > 0 ? packCost / packVolume : 0;
-      cost += unitCost * Number(c.amount || 0);
+      const ingredientUnit = normalizeUnit(i.unit);
+      const sourceUnit = normalizeUnit(c.unit) || ingredientUnit;
+      const amount = asFiniteNumber(c.amount) ?? 0;
+      const amountForCost = convertAmountLoose(amount, sourceUnit, ingredientUnit);
+      if (amountForCost === null) throw new Error('unit_mismatch');
+      cost += unitCost * amountForCost;
       continue;
     }
 
     const nested = await calcPreparation(c.nested_preparation_id, estId, new Set(visited));
     if (!nested) throw new Error('nested_preparation_not_found');
     const yieldValue = asFiniteNumber(nested.yield_value) ?? 0;
+    const nestedYieldUnit = normalizeUnit(nested.yield_unit);
     const nestedUnitCost = yieldValue > 0 ? nested.cost / yieldValue : 0;
-    cost += nestedUnitCost * Number(c.amount || 0);
+    const amount = asFiniteNumber(c.amount) ?? 0;
+    const sourceUnit = normalizeUnit(c.unit) || nestedYieldUnit;
+    const amountForCost = convertAmountLoose(amount, sourceUnit, nestedYieldUnit);
+    if (amountForCost === null) throw new Error('unit_mismatch');
+    cost += nestedUnitCost * amountForCost;
   }
 
   return {
     id: prep.id,
     title: prep.title,
     yield_value: asFiniteNumber(prep.yield_value),
-    yield_unit: prep.yield_unit,
+    yield_unit: prepYieldUnit || prep.yield_unit || null,
     cost: +cost.toFixed(4),
   };
 }
@@ -173,6 +185,7 @@ async function calcCocktail(cocktailId, estId) {
   if (!cq.rowCount) return null;
 
   const cocktail = cq.rows[0];
+  const cocktailOutputUnit = normalizeUnit(cocktail.output_unit) || cocktail.output_unit || null;
   const compQ = await db(
     `SELECT id, ingredient_id, preparation_id, amount, unit
        FROM cocktail_components
@@ -198,14 +211,18 @@ async function calcCocktail(cocktailId, estId) {
       const packVolume = asFiniteNumber(i.package_volume) ?? 0;
       const packCost = asFiniteNumber(i.package_cost) ?? 0;
       const unitCost = packVolume > 0 ? packCost / packVolume : 0;
-      const partCost = unitCost * amount;
+      const ingredientUnit = normalizeUnit(i.unit);
+      const sourceUnit = normalizeUnit(c.unit) || ingredientUnit;
+      const amountForCost = convertAmountLoose(amount, sourceUnit, ingredientUnit);
+      if (amountForCost === null) throw new Error('unit_mismatch');
+      const partCost = unitCost * amountForCost;
       totalCost += partCost;
       breakdown.push({
         type: 'ingredient',
         id: i.id,
         name: i.name,
         amount,
-        unit: c.unit || i.unit || null,
+        unit: sourceUnit || ingredientUnit,
         cost: +partCost.toFixed(4),
       });
       continue;
@@ -214,15 +231,19 @@ async function calcCocktail(cocktailId, estId) {
     const nested = await calcPreparation(c.preparation_id, estId);
     if (!nested) throw new Error('nested_preparation_not_found');
     const yieldValue = asFiniteNumber(nested.yield_value) ?? 0;
+    const nestedYieldUnit = normalizeUnit(nested.yield_unit);
     const unitCost = yieldValue > 0 ? nested.cost / yieldValue : 0;
-    const partCost = unitCost * amount;
+    const sourceUnit = normalizeUnit(c.unit) || nestedYieldUnit;
+    const amountForCost = convertAmountLoose(amount, sourceUnit, nestedYieldUnit);
+    if (amountForCost === null) throw new Error('unit_mismatch');
+    const partCost = unitCost * amountForCost;
     totalCost += partCost;
     breakdown.push({
       type: 'preparation',
       id: nested.id,
       name: nested.title,
       amount,
-      unit: c.unit || nested.yield_unit || null,
+      unit: sourceUnit || nestedYieldUnit,
       cost: +partCost.toFixed(4),
     });
   }
@@ -235,7 +256,7 @@ async function calcCocktail(cocktailId, estId) {
     title: cocktail.title,
     category: cocktail.category,
     output_value: outputValue,
-    output_unit: cocktail.output_unit,
+    output_unit: cocktailOutputUnit,
     garnish: cocktail.garnish,
     serving: cocktail.serving,
     method: cocktail.method,
@@ -269,7 +290,7 @@ r.get('/', requirePermission('cocktails:read'), async (req, res) => {
         title: c.title,
         category: c.category,
         output_value: asFiniteNumber(c.output_value),
-        output_unit: c.output_unit,
+        output_unit: normalizeUnit(c.output_unit) || c.output_unit || null,
         garnish: c.garnish,
         serving: c.serving,
         photo_url: resolvePhotoUrlForRow(c.id, c),
@@ -294,7 +315,7 @@ r.post('/', requirePermission('cocktails:create'), async (req, res) => {
     const title = String(req.body?.title || '').trim();
     const category = String(req.body?.category || 'cocktail').trim();
     const outputValue = req.body?.output_value ?? null;
-    const outputUnit = req.body?.output_unit ?? null;
+    const outputUnit = normalizeUnit(req.body?.output_unit);
     const garnish = req.body?.garnish ?? null;
     const serving = req.body?.serving ?? null;
     const method = req.body?.method ?? null;
@@ -413,6 +434,9 @@ r.get('/:id/calc', requirePermission('cocktails:calc'), async (req, res) => {
     return res.json(calc);
   } catch (e) {
     console.error('cocktails.calc error', e);
+    if (e?.message === 'unit_mismatch') {
+      return res.status(400).json({ error: 'unit_mismatch' });
+    }
     return res.status(400).json({ error: 'calc_failed' });
   }
 });
@@ -429,7 +453,7 @@ r.put('/:id', requirePermission('cocktails:update'), async (req, res) => {
     const title = String(req.body?.title || '').trim();
     const category = String(req.body?.category || 'cocktail').trim();
     const outputValue = req.body?.output_value ?? null;
-    const outputUnit = req.body?.output_unit ?? null;
+    const outputUnit = normalizeUnit(req.body?.output_unit);
     const garnish = req.body?.garnish ?? null;
     const serving = req.body?.serving ?? null;
     const method = req.body?.method ?? null;

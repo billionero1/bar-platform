@@ -44,9 +44,6 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_team_invitations_token_hash ON team_
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_quiz_attempts_establishment_created ON quiz_attempts(establishment_id, created_at DESC);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_quiz_attempts_user_created ON quiz_attempts(user_id, created_at DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shift_kpis_establishment_date ON shift_kpis(establishment_id, shift_date DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_shift_kpis_recorded_by ON shift_kpis(recorded_by);
-
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auth_events_created_desc ON auth_events(created_at DESC);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auth_events_type_created_desc ON auth_events(event_type, created_at DESC);
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_auth_events_user ON auth_events(user_id);
