@@ -164,6 +164,22 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS shift_kpis (
+  id               SERIAL PRIMARY KEY,
+  establishment_id INTEGER NOT NULL REFERENCES establishments(id) ON DELETE CASCADE,
+  shift_date       DATE NOT NULL,
+  recorded_by      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  guests_count     INTEGER NOT NULL DEFAULT 0,
+  orders_count     INTEGER NOT NULL DEFAULT 0,
+  revenue          NUMERIC NOT NULL DEFAULT 0,
+  writeoff_cost    NUMERIC NOT NULL DEFAULT 0,
+  avg_ticket       NUMERIC NOT NULL DEFAULT 0,
+  notes            TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (establishment_id, shift_date)
+);
+
 -- Мягкая миграция со старой структуры preparation_items -> preparation_components
 DO $$
 BEGIN
