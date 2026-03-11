@@ -476,8 +476,11 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     }
   }, [docStorageKey]);
 
-  const refreshWorkspaceData = useCallback(async () => {
-    setLoading(true);
+  const refreshWorkspaceData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = !!options?.silent;
+    if (!silent) {
+      setLoading(true);
+    }
     setWorkspaceError(null);
 
     try {
@@ -540,7 +543,9 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     } catch (e) {
       setWorkspaceError(rusify(e));
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [
     canReadCocktails,
@@ -566,7 +571,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     setWorkspaceError(null);
     try {
       await runner();
-      await refreshWorkspaceData();
+      await refreshWorkspaceData({ silent: true });
     } catch (e) {
       setWorkspaceError(rusify(e));
     } finally {
