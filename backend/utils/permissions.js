@@ -49,22 +49,15 @@ const ROLE_PERMISSION_MATRIX = {
   staff: [
     'dashboard:view',
 
-    'ingredients:read',
-
     'preparations:read',
-    'preparations:create',
     'preparations:calc',
 
     'cocktails:read',
-    'cocktails:create',
     'cocktails:calc',
-    'cocktails:upload_photo',
 
     'forms:read',
     'forms:create',
     'forms:update_own',
-
-    'team:read',
 
     'docs:read',
 

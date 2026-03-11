@@ -145,16 +145,71 @@ function normalizeUnitOption(raw: string | null | undefined): UnitOption | '' {
 function defaultComponentUnit(type: DraftComponent['type']): UnitOption {
   return type === 'preparation' ? 'л' : 'мл';
 }
+
 const MODULE_READ_PERMISSION: Record<WorkspaceModuleId, string | null> = {
   dashboard: 'dashboard:view',
   ingredients: 'ingredients:read',
   preparations: 'preparations:read',
   cocktails: 'cocktails:read',
+  calculator: 'preparations:calc',
   training: 'training:read',
   tests: 'tests:take',
   docs: 'docs:read',
   forms: 'forms:read',
   team: 'team:read',
+  profile: null,
+};
+
+const NAV_GROUPS: Array<{
+  id: 'overview' | 'ttk' | 'knowledge' | 'ops' | 'people' | 'profile';
+  label: string;
+  items: WorkspaceModuleId[];
+}> = [
+  { id: 'overview', label: 'Обзор', items: ['dashboard'] },
+  { id: 'ttk', label: 'ТТК', items: ['ingredients', 'preparations', 'cocktails', 'calculator'] },
+  { id: 'knowledge', label: 'Обучение', items: ['docs', 'training', 'tests'] },
+  { id: 'ops', label: 'Операционка', items: ['forms'] },
+  { id: 'people', label: 'Команда', items: ['team'] },
+  { id: 'profile', label: 'Профиль', items: ['profile'] },
+];
+
+type AmountDisplayMode = 'large_units' | 'small_units';
+type UserPreferences = {
+  amountDisplayMode: AmountDisplayMode;
+};
+
+const DEFAULT_USER_PREFERENCES: UserPreferences = {
+  amountDisplayMode: 'large_units',
+};
+
+type UnitKind = 'volume' | 'weight' | 'count';
+
+const UNIT_KIND: Record<UnitOption, UnitKind> = {
+  мл: 'volume',
+  л: 'volume',
+  г: 'weight',
+  кг: 'weight',
+  шт: 'count',
+};
+
+const UNIT_TO_BASE: Record<UnitOption, number> = {
+  мл: 1,
+  л: 1000,
+  г: 1,
+  кг: 1000,
+  шт: 1,
+};
+
+const LARGE_UNIT_BY_KIND: Record<UnitKind, UnitOption> = {
+  volume: 'л',
+  weight: 'кг',
+  count: 'шт',
+};
+
+const SMALL_UNIT_BY_KIND: Record<UnitKind, UnitOption> = {
+  volume: 'мл',
+  weight: 'г',
+  count: 'шт',
 };
 
 function hasPermissionLocal(permissions: string[], permission: string): boolean {
@@ -174,13 +229,121 @@ function parseNumberInput(value: string): number | null {
 
 function formatMoney(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—';
-  return `${value.toFixed(2)} ₽`;
+  return `${value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`;
 }
 
-function formatValue(value: number | null, unit: string | null): string {
+function convertUnitAmount(value: number, fromUnit: UnitOption, toUnit: UnitOption): number | null {
+  const fromKind = UNIT_KIND[fromUnit];
+  const toKind = UNIT_KIND[toUnit];
+  if (!fromKind || !toKind || fromKind !== toKind) return null;
+  const inBase = value * UNIT_TO_BASE[fromUnit];
+  return inBase / UNIT_TO_BASE[toUnit];
+}
+
+function normalizeDisplayAmount(
+  value: number,
+  rawUnit: string | null,
+  prefs: UserPreferences
+): { value: number; unit: UnitOption | null } {
+  const unit = normalizeUnitOption(rawUnit);
+  if (!unit) return { value, unit: null };
+  const kind = UNIT_KIND[unit];
+  if (!kind) return { value, unit };
+
+  const targetUnit =
+    prefs.amountDisplayMode === 'small_units'
+      ? SMALL_UNIT_BY_KIND[kind]
+      : LARGE_UNIT_BY_KIND[kind];
+  const converted = convertUnitAmount(value, unit, targetUnit);
+  if (converted === null) return { value, unit };
+  return { value: converted, unit: targetUnit };
+}
+
+function formatAmountNumber(value: number, decimals: number): string {
+  return value.toLocaleString('ru-RU', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function formatValueByPrefs(value: number | null, unit: string | null, prefs: UserPreferences): string {
   if (value === null || !Number.isFinite(value)) return '—';
-  if (!unit) return value.toFixed(2);
-  return `${value.toFixed(2)} ${unit}`;
+  const normalized = normalizeDisplayAmount(value, unit, prefs);
+  if (!normalized.unit) {
+    return formatAmountNumber(normalized.value, 2);
+  }
+  const decimals = prefs.amountDisplayMode === 'small_units' ? 2 : 3;
+  return `${formatAmountNumber(normalized.value, decimals)} ${normalized.unit}`;
+}
+
+function flattenExpandedIngredients(items: PreparationSummary['breakdown']): Array<{ amount: number; unit: UnitOption }> {
+  const result: Array<{ amount: number; unit: UnitOption }> = [];
+
+  const walk = (rows: PreparationSummary['breakdown']) => {
+    for (const row of rows) {
+      if (row.type === 'ingredient') {
+        const unit = normalizeUnitOption(row.unit);
+        if (unit && Number.isFinite(row.amount)) {
+          result.push({ amount: Number(row.amount), unit });
+        }
+      }
+      if (Array.isArray(row.expanded) && row.expanded.length) {
+        walk(row.expanded);
+      }
+    }
+  };
+
+  walk(items);
+  return result;
+}
+
+function summarizeExpandedBreakdown(items: PreparationSummary['breakdown'], prefs: UserPreferences): string | null {
+  const flattened = flattenExpandedIngredients(items);
+  if (!flattened.length) return null;
+
+  const totals: Partial<Record<UnitKind, number>> = {};
+
+  for (const item of flattened) {
+    const kind = UNIT_KIND[item.unit];
+    if (!kind) continue;
+    const targetUnit =
+      prefs.amountDisplayMode === 'small_units'
+        ? SMALL_UNIT_BY_KIND[kind]
+        : LARGE_UNIT_BY_KIND[kind];
+    const converted = convertUnitAmount(item.amount, item.unit, targetUnit);
+    if (converted === null) continue;
+    totals[kind] = (totals[kind] || 0) + converted;
+  }
+
+  const parts: string[] = [];
+  (['weight', 'volume', 'count'] as UnitKind[]).forEach((kind) => {
+    const amount = totals[kind];
+    if (!amount || !Number.isFinite(amount)) return;
+    const unit =
+      prefs.amountDisplayMode === 'small_units'
+        ? SMALL_UNIT_BY_KIND[kind]
+        : LARGE_UNIT_BY_KIND[kind];
+    const decimals = prefs.amountDisplayMode === 'small_units' ? 2 : 3;
+    parts.push(`${formatAmountNumber(amount, decimals)} ${unit}`);
+  });
+
+  return parts.length ? parts.join(', ') : null;
+}
+
+function composePreparationSummary(
+  breakdown: PreparationSummary['breakdown'],
+  prefs: UserPreferences
+): string | null {
+  if (!breakdown.length) return null;
+  const parts = breakdown.map((row) => {
+    const amountLabel = formatValueByPrefs(row.amount, row.unit, prefs);
+    if (row.type !== 'preparation' || !row.expanded?.length) {
+      return `${row.name} ${amountLabel}`;
+    }
+    const nested = summarizeExpandedBreakdown(row.expanded, prefs);
+    return nested ? `${row.name} ${amountLabel} (${nested})` : `${row.name} ${amountLabel}`;
+  });
+  return parts.join(', ');
 }
 
 function prepCalcBasisLabel(mode: PreparationCalc['calculationBasis']): string {
@@ -251,9 +414,24 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       }),
     [can, user?.role]
   );
+  const moduleById = useMemo(() => new Map(modules.map((module) => [module.id, module])), [modules]);
+  const navGroups = useMemo(
+    () =>
+      NAV_GROUPS
+        .map((group) => ({
+          ...group,
+          items: group.items
+            .map((itemId) => moduleById.get(itemId))
+            .filter((item): item is WorkspaceModule => !!item),
+        }))
+        .filter((group) => group.items.length > 0),
+    [moduleById]
+  );
 
   const [activeModule, setActiveModule] = useState<WorkspaceModuleId>('dashboard');
+  const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState('');
+  const [userPreferences, setUserPreferences] = useState<UserPreferences>(DEFAULT_USER_PREFERENCES);
 
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -357,6 +535,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   const [quizHistory, setQuizHistory] = useState<number[]>([]);
 
   const [docAcks, setDocAcks] = useState<DocumentAcks>({});
+  const userPrefsStorageKey = `probar:user-prefs:${user?.sub ?? 'anon'}`;
 
   const hasEstablishment = !!user?.establishment_id;
   const isMobile = layout === 'mobile';
@@ -390,6 +569,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   const canTakeTests = can('tests:take');
   const canViewTeamAnalytics = can('tests:analytics_team');
   const canManageTests = can('tests:manage');
+  const canUseCalculator = can('preparations:calc');
 
   const filteredIngredients = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -445,6 +625,22 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   }, [activeModule, modules]);
 
   useEffect(() => {
+    if (!navGroups.length) return;
+    setOpenNavGroups((prev) => {
+      const next = { ...prev };
+      for (const group of navGroups) {
+        if (next[group.id] === undefined) {
+          next[group.id] = true;
+        }
+        if (group.items.some((item) => item.id === activeModule)) {
+          next[group.id] = true;
+        }
+      }
+      return next;
+    });
+  }, [activeModule, navGroups]);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(quizStorageKey);
       if (!raw) {
@@ -475,6 +671,25 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       setDocAcks({});
     }
   }, [docStorageKey]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(userPrefsStorageKey);
+      if (!raw) {
+        setUserPreferences(DEFAULT_USER_PREFERENCES);
+        return;
+      }
+      const parsed = JSON.parse(raw) as Partial<UserPreferences>;
+      setUserPreferences({
+        amountDisplayMode:
+          parsed.amountDisplayMode === 'small_units'
+            ? 'small_units'
+            : DEFAULT_USER_PREFERENCES.amountDisplayMode,
+      });
+    } catch {
+      setUserPreferences(DEFAULT_USER_PREFERENCES);
+    }
+  }, [userPrefsStorageKey]);
 
   const refreshWorkspaceData = useCallback(async (options?: { silent?: boolean }) => {
     const silent = !!options?.silent;
@@ -1033,17 +1248,38 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
 
   const isBusy = (key: string) => busyAction === key;
 
-  const moduleNav = (item: WorkspaceModule) => (
+  const formatAmount = useCallback(
+    (value: number | null, unit: string | null) => formatValueByPrefs(value, unit, userPreferences),
+    [userPreferences]
+  );
+
+  const updateUserPreferences = useCallback((patch: Partial<UserPreferences>) => {
+    setUserPreferences((prev) => {
+      const next: UserPreferences = { ...prev, ...patch };
+      try {
+        window.localStorage.setItem(userPrefsStorageKey, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, [userPrefsStorageKey]);
+
+  const toggleNavGroup = useCallback((groupId: string) => {
+    setOpenNavGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+  }, []);
+
+  const moduleNav = (item: WorkspaceModule, compact = false) => (
     <button
       key={item.id}
       type="button"
-      className={`wsv-nav__item${item.id === activeModule ? ' wsv-nav__item--active' : ''}`}
+      className={`wsv-nav__item${item.id === activeModule ? ' wsv-nav__item--active' : ''}${compact ? ' wsv-nav__item--compact' : ''}`}
       onClick={() => setActiveModule(item.id)}
     >
       <span className="wsv-nav__icon">{item.icon}</span>
       <span className="wsv-nav__text">
         <strong>{item.label}</strong>
-        <small>{item.subtitle}</small>
+        {!compact ? <small>{item.subtitle}</small> : null}
       </span>
     </button>
   );
@@ -1130,12 +1366,17 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
             ) : null}
             {canReadPreparations ? (
               <button type="button" className="wsv-btn" onClick={() => setActiveModule('preparations')}>
-                Создать заготовку
+                {canCreatePreparations ? 'Создать заготовку' : 'Открыть заготовки'}
               </button>
             ) : null}
             {canReadCocktails ? (
               <button type="button" className="wsv-btn" onClick={() => setActiveModule('cocktails')}>
-                Добавить коктейль
+                {canCreateCocktails ? 'Добавить коктейль' : 'Открыть коктейли'}
+              </button>
+            ) : null}
+            {canUseCalculator ? (
+              <button type="button" className="wsv-btn" onClick={() => setActiveModule('calculator')}>
+                Калькулятор
               </button>
             ) : null}
             {canReadForms ? (
@@ -1174,7 +1415,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
               ) : undefined
             }
           >
-            <div className="wsv-form-grid">
+            <div className="wsv-form-grid wsv-form-grid--ingredient">
               <label>
                 <span>Название</span>
                 <input
@@ -1249,7 +1490,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                   {filteredIngredients.map((row) => (
                     <tr key={row.id}>
                       <td>{row.name}</td>
-                      <td>{formatValue(row.packVolume, row.unit)}</td>
+                      <td>{formatAmount(row.packVolume, row.unit)}</td>
                       <td>{formatMoney(row.costPerUnit)}</td>
                       <td className="wsv-table__actions">
                         {canUpdateIngredients ? (
@@ -1437,7 +1678,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
             style={{ paddingLeft: `${10 + depth * 14}px` }}
           >
             <span>{item.type === 'preparation' ? `Заготовка: ${item.name}` : item.name}</span>
-            <span>{formatValue(item.amount, item.unit)}</span>
+            <span>{formatAmount(item.amount, item.unit)}</span>
             <span>{formatMoney(item.cost)}</span>
           </div>
           {item.type === 'preparation' && item.expanded?.length ? (
@@ -1451,6 +1692,173 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     </div>
   );
 
+  const renderPreparationCalculatorCard = () => {
+    if (!selectedPrepId || !prepCalc) {
+      return (
+        <EmptyState
+          title="Выбери заготовку для расчёта"
+          subtitle="Открой карту в списке выше и запусти расчёт по выходу или известному компоненту."
+        />
+      );
+    }
+
+    return (
+      <div className="wsv-calc">
+        <div className="wsv-calc__head">
+          <h4>{prepCalc.title}</h4>
+          <span>Себестоимость расчёта: {formatMoney(prepCalc.cost)}</span>
+        </div>
+        <div className="wsv-mini-card__meta">
+          Режим: {prepCalcBasisLabel(prepCalc.calculationBasis)}
+        </div>
+        {prepCalc.baseCost !== undefined && prepCalc.baseCost !== prepCalc.cost ? (
+          <div className="wsv-mini-card__meta">Базовая себестоимость рецепта: {formatMoney(prepCalc.baseCost)}</div>
+        ) : null}
+
+        <div className="wsv-calc-modes">
+          <div className="wsv-calc-mode">
+            <strong>По выходу</strong>
+            <div className="wsv-row">
+              <input
+                value={prepCalcVolume}
+                onChange={(e) => setPrepCalcVolume(e.target.value)}
+                placeholder="Целевой выход (например 2.5)"
+              />
+              <button
+                type="button"
+                className="wsv-btn"
+                onClick={() => {
+                  const volume = parseNumberInput(prepCalcVolume);
+                  if (volume === null || volume <= 0) {
+                    setWorkspaceError('Укажи корректный целевой выход.');
+                    return;
+                  }
+                  void loadPreparationCalc(selectedPrepId, { volume });
+                }}
+                disabled={prepCalcLoading}
+              >
+                {prepCalcLoading ? 'Считаю…' : 'Рассчитать'}
+              </button>
+            </div>
+          </div>
+
+          {prepCalc.altVolume !== null && prepCalc.altVolume > 0 ? (
+            <div className="wsv-calc-mode">
+              <strong>По объёму до фильтрации</strong>
+              <div className="wsv-row">
+                <input
+                  value={prepCalcAltVolume}
+                  onChange={(e) => setPrepCalcAltVolume(e.target.value)}
+                  placeholder="Стартовый объём (например 4)"
+                />
+                <button
+                  type="button"
+                  className="wsv-btn"
+                  onClick={() => {
+                    const altVolume = parseNumberInput(prepCalcAltVolume);
+                    if (altVolume === null || altVolume <= 0) {
+                      setWorkspaceError('Укажи корректный объём до фильтрации.');
+                      return;
+                    }
+                    void loadPreparationCalc(selectedPrepId, { altVolume });
+                  }}
+                  disabled={prepCalcLoading}
+                >
+                  {prepCalcLoading ? 'Считаю…' : 'Рассчитать'}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="wsv-calc-mode">
+            <strong>По известному компоненту</strong>
+            <div className="wsv-row">
+              <select
+                value={prepCalcKnownComponentIndex}
+                onChange={(e) => setPrepCalcKnownComponentIndex(e.target.value)}
+              >
+                <option value="">Выбери компонент</option>
+                {prepCalc.breakdown.map((item, index) => (
+                  <option key={`${item.type}-${item.id}-${index}`} value={String(index)}>
+                    {item.name} ({formatAmount(item.amount, item.unit)})
+                  </option>
+                ))}
+              </select>
+              <input
+                value={prepCalcKnownAmount}
+                onChange={(e) => setPrepCalcKnownAmount(e.target.value)}
+                placeholder="Известное количество"
+              />
+              <button
+                type="button"
+                className="wsv-btn"
+                onClick={() => {
+                  const knownAmount = parseNumberInput(prepCalcKnownAmount);
+                  const knownComponentIndex = Number(prepCalcKnownComponentIndex);
+                  if (!Number.isInteger(knownComponentIndex) || knownComponentIndex < 0) {
+                    setWorkspaceError('Сначала выбери компонент для расчёта.');
+                    return;
+                  }
+                  if (knownAmount === null || knownAmount <= 0) {
+                    setWorkspaceError('Укажи корректное известное количество компонента.');
+                    return;
+                  }
+                  void loadPreparationCalc(selectedPrepId, {
+                    knownComponentIndex,
+                    knownAmount,
+                  });
+                }}
+                disabled={prepCalcLoading}
+              >
+                {prepCalcLoading ? 'Считаю…' : 'Рассчитать'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="wsv-row">
+          <button
+            type="button"
+            className="wsv-btn"
+            onClick={() => {
+              setPrepCalcVolume('');
+              setPrepCalcAltVolume('');
+              setPrepCalcKnownComponentIndex('');
+              setPrepCalcKnownAmount('');
+              void loadPreparationCalc(selectedPrepId);
+            }}
+            disabled={prepCalcLoading}
+          >
+            Сбросить к базовому рецепту
+          </button>
+        </div>
+
+        <div className="wsv-listing">
+          <div>Базовый выход: {formatAmount(prepCalc.yieldValue, prepCalc.yieldUnit)}</div>
+          <div>Себестоимость / ед.: {formatMoney(prepCalc.costPerUnit)}</div>
+          {prepCalc.altVolume !== null ? (
+            <div>Базовый объём до фильтрации: {formatAmount(prepCalc.altVolume, prepCalc.yieldUnit)}</div>
+          ) : null}
+          {prepCalc.requestedVolume !== undefined ? (
+            <div>Расчётный выход: {formatAmount(prepCalc.requestedVolume, prepCalc.yieldUnit)}</div>
+          ) : null}
+          {prepCalc.requestedAltVolume !== undefined ? (
+            <div>
+              Расчётный объём до фильтрации: {formatAmount(prepCalc.requestedAltVolume, prepCalc.yieldUnit)}
+            </div>
+          ) : null}
+          {prepCalc.costForRequested !== undefined ? (
+            <div>Себестоимость расчётного объёма: {formatMoney(prepCalc.costForRequested)}</div>
+          ) : prepCalc.costForVolume !== undefined ? (
+            <div>Себестоимость расчётного объёма: {formatMoney(prepCalc.costForVolume)}</div>
+          ) : null}
+        </div>
+
+        {renderPreparationBreakdown(prepCalc.breakdown)}
+      </div>
+    );
+  };
+
   const renderPreparations = () => {
     if (!hasEstablishment) return renderEstablishmentRequired();
     if (!canReadPreparations) {
@@ -1460,66 +1868,133 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     return (
       <div className="wsv-grid wsv-grid--dual">
         {canCreatePreparations ? (
-        <SectionCard title="Новая заготовка">
-          <div className="wsv-form-grid">
-            <label>
-              <span>Название</span>
-              <input
-                value={preparationDraft.title}
-                onChange={(e) => setPreparationDraft((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="Сироп ромашка-мёд"
-              />
-            </label>
-            <label>
-              <span>Выход</span>
-              <input
-                value={preparationDraft.yieldValue}
-                onChange={(e) => setPreparationDraft((prev) => ({ ...prev, yieldValue: e.target.value }))}
-                placeholder="1.2"
-              />
-            </label>
-            <label>
-              <span>Единица выхода</span>
-              <select
-                value={normalizeUnitOption(preparationDraft.yieldUnit) || 'л'}
-                onChange={(e) => setPreparationDraft((prev) => ({ ...prev, yieldUnit: e.target.value }))}
+          <SectionCard title="Новая заготовка">
+            <div className="wsv-form-grid wsv-form-grid--preparation">
+              <label>
+                <span>Название</span>
+                <input
+                  value={preparationDraft.title}
+                  onChange={(e) => setPreparationDraft((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Сироп ромашка-мёд"
+                />
+              </label>
+              <label>
+                <span>Выход</span>
+                <input
+                  value={preparationDraft.yieldValue}
+                  onChange={(e) => setPreparationDraft((prev) => ({ ...prev, yieldValue: e.target.value }))}
+                  placeholder="1.2"
+                />
+              </label>
+              <label>
+                <span>Единица выхода</span>
+                <select
+                  value={normalizeUnitOption(preparationDraft.yieldUnit) || 'л'}
+                  onChange={(e) => setPreparationDraft((prev) => ({ ...prev, yieldUnit: e.target.value }))}
+                >
+                  {UNIT_OPTIONS.map((unit) => (
+                    <option value={unit} key={unit}>
+                      {UNIT_LABELS[unit]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Объём до фильтрации (опц.)</span>
+                <input
+                  value={preparationDraft.altVolume}
+                  onChange={(e) => setPreparationDraft((prev) => ({ ...prev, altVolume: e.target.value }))}
+                  placeholder="1.5"
+                />
+              </label>
+            </div>
+
+            {renderPreparationComponentsEditor(preparationDraft.components, (components) => {
+              setPreparationDraft((prev) => ({ ...prev, components }));
+            })}
+
+            <div className="wsv-row">
+              <button
+                type="button"
+                className="wsv-btn wsv-btn--primary"
+                onClick={() => void onSubmitPreparation()}
+                disabled={isBusy('preparation:create')}
               >
-                {UNIT_OPTIONS.map((unit) => (
-                  <option value={unit} key={unit}>
-                    {UNIT_LABELS[unit]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Объём до фильтрации (опц.)</span>
-              <input
-                value={preparationDraft.altVolume}
-                onChange={(e) => setPreparationDraft((prev) => ({ ...prev, altVolume: e.target.value }))}
-                placeholder="1.5"
-              />
-            </label>
-          </div>
-
-          {renderPreparationComponentsEditor(preparationDraft.components, (components) => {
-            setPreparationDraft((prev) => ({ ...prev, components }));
-          })}
-
-          <div className="wsv-row">
-            <button
-              type="button"
-              className="wsv-btn wsv-btn--primary"
-              onClick={() => void onSubmitPreparation()}
-              disabled={isBusy('preparation:create')}
-            >
-              {isBusy('preparation:create') ? 'Сохраняю…' : 'Создать заготовку'}
-            </button>
-            <button type="button" className="wsv-btn" onClick={resetPreparationDraft}>Сбросить</button>
-          </div>
-        </SectionCard>
+                {isBusy('preparation:create') ? 'Сохраняю…' : 'Создать заготовку'}
+              </button>
+              <button type="button" className="wsv-btn" onClick={resetPreparationDraft}>Сбросить</button>
+            </div>
+          </SectionCard>
         ) : null}
 
         <SectionCard title="Техкарты заготовок">
+          {filteredPreparations.length ? (
+            <div className="wsv-cards">
+              {filteredPreparations.map((row) => {
+                const composition = composePreparationSummary(row.breakdown, userPreferences);
+                return (
+                  <article
+                    key={row.id}
+                    className={`wsv-mini-card${selectedPrepId === row.id ? ' wsv-mini-card--active' : ''}`}
+                  >
+                    <div className="wsv-mini-card__head">
+                      <strong>{row.title}</strong>
+                      <span>{formatMoney(row.costPerUnit)}</span>
+                    </div>
+                    <div className="wsv-mini-card__meta">Выход: {formatAmount(row.yieldValue, row.yieldUnit)}</div>
+                    {composition ? <div className="wsv-mini-card__composition">{composition}</div> : null}
+                    <div className="wsv-row">
+                      <button
+                        type="button"
+                        className="wsv-link"
+                        onClick={() => {
+                          void onSelectPreparation(row.id);
+                          if (canUseCalculator) setActiveModule('calculator');
+                        }}
+                      >
+                        Рассчитать
+                      </button>
+                      {canDeletePreparations ? (
+                        <button
+                          type="button"
+                          className="wsv-link wsv-link--danger"
+                          onClick={() => {
+                            if (!window.confirm(`Удалить заготовку «${row.title}»?`)) return;
+                            void runMutate('preparation:delete', async () => {
+                              await deletePreparation(row.id);
+                              if (selectedPrepId === row.id) {
+                                setSelectedPrepId(null);
+                                setPrepCalc(null);
+                              }
+                            });
+                          }}
+                          disabled={isBusy('preparation:delete')}
+                        >
+                          Удалить
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState title="Нет заготовок" subtitle="Создай первую техкарту prep и зафиксируй выход." />
+          )}
+        </SectionCard>
+      </div>
+    );
+  };
+
+  const renderCalculator = () => {
+    if (!hasEstablishment) return renderEstablishmentRequired();
+    if (!canUseCalculator || !canReadPreparations) {
+      return <EmptyState title="Нет доступа" subtitle="У тебя нет прав на калькулятор заготовок." />;
+    }
+
+    return (
+      <div className="wsv-grid wsv-grid--dual">
+        <SectionCard title="Выбор заготовки">
           {filteredPreparations.length ? (
             <div className="wsv-cards">
               {filteredPreparations.map((row) => (
@@ -1531,199 +2006,21 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                     <strong>{row.title}</strong>
                     <span>{formatMoney(row.costPerUnit)}</span>
                   </div>
-                  <div className="wsv-mini-card__meta">Выход: {formatValue(row.yieldValue, row.yieldUnit)}</div>
-                  {row.altVolume !== null ? (
-                    <div className="wsv-mini-card__meta">
-                      До фильтрации: {formatValue(row.altVolume, row.yieldUnit)}
-                    </div>
-                  ) : null}
+                  <div className="wsv-mini-card__meta">Выход: {formatAmount(row.yieldValue, row.yieldUnit)}</div>
                   <div className="wsv-row">
                     <button type="button" className="wsv-link" onClick={() => void onSelectPreparation(row.id)}>
-                      Рассчитать
+                      Выбрать
                     </button>
-                    {canDeletePreparations ? (
-                      <button
-                        type="button"
-                        className="wsv-link wsv-link--danger"
-                        onClick={() => {
-                          if (!window.confirm(`Удалить заготовку «${row.title}»?`)) return;
-                          void runMutate('preparation:delete', async () => {
-                            await deletePreparation(row.id);
-                            if (selectedPrepId === row.id) {
-                              setSelectedPrepId(null);
-                              setPrepCalc(null);
-                            }
-                          });
-                        }}
-                        disabled={isBusy('preparation:delete')}
-                      >
-                        Удалить
-                      </button>
-                    ) : null}
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <EmptyState title="Нет заготовок" subtitle="Создай первую техкарту prep и зафиксируй выход." />
+            <EmptyState title="Нет заготовок" subtitle="Добавьте техкарты, чтобы открыть калькулятор." />
           )}
-
-          {selectedPrepId && prepCalc ? (
-            <div className="wsv-calc">
-              <div className="wsv-calc__head">
-                <h4>{prepCalc.title}</h4>
-                <span>Себестоимость расчёта: {formatMoney(prepCalc.cost)}</span>
-              </div>
-              <div className="wsv-mini-card__meta">
-                Режим: {prepCalcBasisLabel(prepCalc.calculationBasis)}
-              </div>
-              {prepCalc.baseCost !== undefined && prepCalc.baseCost !== prepCalc.cost ? (
-                <div className="wsv-mini-card__meta">Базовая себестоимость рецепта: {formatMoney(prepCalc.baseCost)}</div>
-              ) : null}
-
-              <div className="wsv-calc-modes">
-                <div className="wsv-calc-mode">
-                  <strong>По выходу</strong>
-                  <div className="wsv-row">
-                    <input
-                      value={prepCalcVolume}
-                      onChange={(e) => setPrepCalcVolume(e.target.value)}
-                      placeholder="Целевой выход (например 2.5)"
-                    />
-                    <button
-                      type="button"
-                      className="wsv-btn"
-                      onClick={() => {
-                        const volume = parseNumberInput(prepCalcVolume);
-                        if (volume === null || volume <= 0) {
-                          setWorkspaceError('Укажи корректный целевой выход.');
-                          return;
-                        }
-                        void loadPreparationCalc(selectedPrepId, { volume });
-                      }}
-                      disabled={prepCalcLoading}
-                    >
-                      {prepCalcLoading ? 'Считаю…' : 'Рассчитать'}
-                    </button>
-                  </div>
-                </div>
-
-                {prepCalc.altVolume !== null && prepCalc.altVolume > 0 ? (
-                  <div className="wsv-calc-mode">
-                    <strong>По объёму до фильтрации</strong>
-                    <div className="wsv-row">
-                      <input
-                        value={prepCalcAltVolume}
-                        onChange={(e) => setPrepCalcAltVolume(e.target.value)}
-                        placeholder="Стартовый объём (например 4)"
-                      />
-                      <button
-                        type="button"
-                        className="wsv-btn"
-                        onClick={() => {
-                          const altVolume = parseNumberInput(prepCalcAltVolume);
-                          if (altVolume === null || altVolume <= 0) {
-                            setWorkspaceError('Укажи корректный объём до фильтрации.');
-                            return;
-                          }
-                          void loadPreparationCalc(selectedPrepId, { altVolume });
-                        }}
-                        disabled={prepCalcLoading}
-                      >
-                        {prepCalcLoading ? 'Считаю…' : 'Рассчитать'}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="wsv-calc-mode">
-                  <strong>По известному компоненту</strong>
-                  <div className="wsv-row">
-                    <select
-                      value={prepCalcKnownComponentIndex}
-                      onChange={(e) => setPrepCalcKnownComponentIndex(e.target.value)}
-                    >
-                      <option value="">Выбери компонент</option>
-                      {prepCalc.breakdown.map((item, index) => (
-                        <option key={`${item.type}-${item.id}-${index}`} value={String(index)}>
-                          {item.name} ({formatValue(item.amount, item.unit)})
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={prepCalcKnownAmount}
-                      onChange={(e) => setPrepCalcKnownAmount(e.target.value)}
-                      placeholder="Известное количество"
-                    />
-                    <button
-                      type="button"
-                      className="wsv-btn"
-                      onClick={() => {
-                        const knownAmount = parseNumberInput(prepCalcKnownAmount);
-                        const knownComponentIndex = Number(prepCalcKnownComponentIndex);
-                        if (!Number.isInteger(knownComponentIndex) || knownComponentIndex < 0) {
-                          setWorkspaceError('Сначала выбери компонент для расчёта.');
-                          return;
-                        }
-                        if (knownAmount === null || knownAmount <= 0) {
-                          setWorkspaceError('Укажи корректное известное количество компонента.');
-                          return;
-                        }
-                        void loadPreparationCalc(selectedPrepId, {
-                          knownComponentIndex,
-                          knownAmount,
-                        });
-                      }}
-                      disabled={prepCalcLoading}
-                    >
-                      {prepCalcLoading ? 'Считаю…' : 'Рассчитать'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="wsv-row">
-                <button
-                  type="button"
-                  className="wsv-btn"
-                  onClick={() => {
-                    setPrepCalcVolume('');
-                    setPrepCalcAltVolume('');
-                    setPrepCalcKnownComponentIndex('');
-                    setPrepCalcKnownAmount('');
-                    void loadPreparationCalc(selectedPrepId);
-                  }}
-                  disabled={prepCalcLoading}
-                >
-                  Сбросить к базовому рецепту
-                </button>
-              </div>
-
-              <div className="wsv-listing">
-                <div>Базовый выход: {formatValue(prepCalc.yieldValue, prepCalc.yieldUnit)}</div>
-                <div>Себестоимость / ед.: {formatMoney(prepCalc.costPerUnit)}</div>
-                {prepCalc.altVolume !== null ? (
-                  <div>Базовый объём до фильтрации: {formatValue(prepCalc.altVolume, prepCalc.yieldUnit)}</div>
-                ) : null}
-                {prepCalc.requestedVolume !== undefined ? (
-                  <div>Расчётный выход: {formatValue(prepCalc.requestedVolume, prepCalc.yieldUnit)}</div>
-                ) : null}
-                {prepCalc.requestedAltVolume !== undefined ? (
-                  <div>
-                    Расчётный объём до фильтрации: {formatValue(prepCalc.requestedAltVolume, prepCalc.yieldUnit)}
-                  </div>
-                ) : null}
-                {prepCalc.costForRequested !== undefined ? (
-                  <div>Себестоимость расчётного объёма: {formatMoney(prepCalc.costForRequested)}</div>
-                ) : prepCalc.costForVolume !== undefined ? (
-                  <div>Себестоимость расчётного объёма: {formatMoney(prepCalc.costForVolume)}</div>
-                ) : null}
-              </div>
-
-              {renderPreparationBreakdown(prepCalc.breakdown)}
-            </div>
-          ) : null}
         </SectionCard>
+
+        <SectionCard title="Калькулятор заготовки">{renderPreparationCalculatorCard()}</SectionCard>
       </div>
     );
   };
@@ -1738,7 +2035,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       <div className="wsv-grid wsv-grid--dual">
         {canCreateCocktails ? (
         <SectionCard title="Новая карточка коктейля">
-          <div className="wsv-form-grid">
+          <div className="wsv-form-grid wsv-form-grid--cocktail">
             <label>
               <span>Название</span>
               <input
@@ -1853,7 +2150,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                     <span>{COCKTAIL_CATEGORY_LABELS[row.category] || row.category}</span>
                   </div>
                   <div className="wsv-mini-card__meta">
-                    Выход: {formatValue(row.outputValue, row.outputUnit)}
+                    Выход: {formatAmount(row.outputValue, row.outputUnit)}
                   </div>
                   <div className="wsv-mini-card__meta">Подача: {row.serving || '—'}</div>
                   <div className="wsv-mini-card__meta">Украшение: {row.garnish || '—'}</div>
@@ -1896,7 +2193,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
               </div>
 
               <div className="wsv-listing">
-                <div>Выход: {formatValue(cocktailCalc.outputValue, cocktailCalc.outputUnit)}</div>
+                <div>Выход: {formatAmount(cocktailCalc.outputValue, cocktailCalc.outputUnit)}</div>
                 <div>Себестоимость / ед.: {formatMoney(cocktailCalc.costPerOutput)}</div>
                 <div>Метод: {cocktailCalc.method || '—'}</div>
                 <div>Подача: {cocktailCalc.serving || '—'}</div>
@@ -1968,7 +2265,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 {cocktailCalc.breakdown.map((item) => (
                   <div key={`${item.type}-${item.id}-${item.name}`} className="wsv-breakdown__row">
                     <span>{item.name}</span>
-                    <span>{formatValue(item.amount, item.unit)}</span>
+                    <span>{formatAmount(item.amount, item.unit)}</span>
                     <span>{formatMoney(item.cost)}</span>
                   </div>
                 ))}
@@ -2489,7 +2786,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
             ) : undefined
           }
         >
-          <div className="wsv-form-grid">
+          <div className="wsv-form-grid wsv-form-grid--request">
             <label>
               <span>Тип</span>
               <select
@@ -2706,10 +3003,11 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
         </SectionCard>
 
         {canReadInvites || canCreateInvites ? (
-          <SectionCard title="Приглашения и onboarding">
+          <div className="wsv-order-top">
+            <SectionCard title="Приглашения и onboarding">
             {canCreateInvites ? (
               <>
-                <div className="wsv-form-grid">
+                <div className="wsv-form-grid wsv-form-grid--invite">
                   <label>
                     <span>Телефон сотрудника</span>
                     <input
@@ -2865,11 +3163,47 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
             ) : (
               <p className="wsv-muted">Нет прав на просмотр журнала приглашений.</p>
             )}
-          </SectionCard>
+            </SectionCard>
+          </div>
         ) : null}
       </div>
     );
   };
+
+  const renderProfile = () => (
+    <div className="wsv-grid">
+      <SectionCard title="Профиль пользователя">
+        <div className="wsv-listing">
+          <div>Имя: {user?.name || '—'}</div>
+          <div>Телефон: {user?.phone || '—'}</div>
+          <div>Роль: {roleLabel(user?.role)}</div>
+          <div>Заведение: {user?.establishment_name || 'Без заведения'}</div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Персонализация отображения">
+        <div className="wsv-form-grid wsv-form-grid--settings">
+          <label className="wsv-field--wide">
+            <span>Нормализация объёмов и веса</span>
+            <select
+              value={userPreferences.amountDisplayMode}
+              onChange={(e) =>
+                updateUserPreferences({
+                  amountDisplayMode: e.target.value === 'small_units' ? 'small_units' : 'large_units',
+                })
+              }
+            >
+              <option value="large_units">Литры/кг (по умолчанию): 0,750 л / 0,350 кг</option>
+              <option value="small_units">Мл/г: 750 мл / 350 г</option>
+            </select>
+          </label>
+        </div>
+        <p className="wsv-muted">
+          Настройка влияет на отображение составов, выходов и калькуляторов, без изменения исходных данных в БД.
+        </p>
+      </SectionCard>
+    </div>
+  );
 
   const moduleTitle = modules.find((item) => item.id === activeModule)?.label || 'Главная';
 
@@ -2887,6 +3221,8 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
         return renderPreparations();
       case 'cocktails':
         return renderCocktails();
+      case 'calculator':
+        return renderCalculator();
       case 'training':
         return renderTraining();
       case 'tests':
@@ -2897,6 +3233,8 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
         return renderForms();
       case 'team':
         return renderTeam();
+      case 'profile':
+        return renderProfile();
       default:
         return renderDashboard();
     }
@@ -2911,13 +3249,31 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
         </div>
 
         <nav className="wsv-nav" aria-label="Модули">
-          {modules.map(moduleNav)}
+          {navGroups.map((group) => {
+            const expanded = openNavGroups[group.id] !== false;
+            return (
+              <div className="wsv-nav__group" key={group.id}>
+                <button
+                  type="button"
+                  className={`wsv-nav__group-head${expanded ? ' wsv-nav__group-head--open' : ''}`}
+                  onClick={() => toggleNavGroup(group.id)}
+                >
+                  <span>{group.label}</span>
+                  <small>{expanded ? '−' : '+'}</small>
+                </button>
+                {expanded ? <div className="wsv-nav__group-list">{group.items.map((item) => moduleNav(item, true))}</div> : null}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="wsv-sidebar__footer">
           <div className="wsv-user">
             <span className="wsv-user__name">{user?.name || user?.phone || 'Пользователь'}</span>
             <span className="wsv-user__meta">{roleLabel(user?.role)} · {user?.establishment_name || 'Без заведения'}</span>
+            <button type="button" className="wsv-link wsv-user__profile" onClick={() => setActiveModule('profile')}>
+              Открыть профиль
+            </button>
           </div>
         </div>
       </aside>
@@ -2946,6 +3302,16 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
               aria-label={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
             >
               {theme === 'dark' ? '☀' : '◐'}
+            </button>
+
+            <button
+              type="button"
+              className="wsv-icon-btn"
+              title="Профиль"
+              aria-label="Профиль"
+              onClick={() => setActiveModule('profile')}
+            >
+              ⚙
             </button>
 
             <button

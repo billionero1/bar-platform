@@ -67,6 +67,7 @@ export type PreparationSummary = {
   yieldUnit: string | null;
   altVolume: number | null;
   costPerUnit: number | null;
+  breakdown: PreparationBreakdownItem[];
 };
 
 export type PreparationBreakdownItem = {
@@ -323,6 +324,7 @@ function normalizePreparationSummary(row: any): PreparationSummary {
     yieldUnit: normalizeUnit(row.yield_unit),
     altVolume: asNumber(row.alt_volume),
     costPerUnit: asNumber(row.cost_per_unit),
+    breakdown: Array.isArray(row.breakdown) ? row.breakdown.map((b: any) => normalizePreparationBreakdown(b)) : [],
   };
 }
 

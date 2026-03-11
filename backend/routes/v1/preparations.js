@@ -181,6 +181,7 @@ r.get('/', requirePermission('preparations:read'), async (req, res) => {
         yield_unit: normalizeUnit(p.yield_unit) || p.yield_unit || null,
         alt_volume: p.alt_volume,
         cost_per_unit: calc?.cost_per_unit ?? null,
+        breakdown: calc?.breakdown ?? [],
       });
     }
 

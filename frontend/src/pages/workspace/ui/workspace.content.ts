@@ -5,11 +5,13 @@ export type WorkspaceModuleId =
   | 'ingredients'
   | 'preparations'
   | 'cocktails'
+  | 'calculator'
   | 'training'
   | 'tests'
   | 'docs'
   | 'forms'
-  | 'team';
+  | 'team'
+  | 'profile';
 
 export type WorkspaceModule = {
   id: WorkspaceModuleId;
@@ -32,12 +34,12 @@ export const WORKSPACE_MODULES: WorkspaceModule[] = [
     label: 'Ингредиенты',
     subtitle: 'Себестоимость и складская база',
     icon: '◍',
-    roles: ['manager', 'staff', 'solo'],
+    roles: ['manager', 'solo'],
   },
   {
     id: 'preparations',
     label: 'Заготовки',
-    subtitle: 'Техкарты prep и калькулятор выходов',
+    subtitle: 'Техкарты prep',
     icon: '◎',
     roles: ['manager', 'staff', 'solo'],
   },
@@ -46,6 +48,13 @@ export const WORKSPACE_MODULES: WorkspaceModule[] = [
     label: 'Коктейли',
     subtitle: 'Подача, garnish, метод и фото',
     icon: '◉',
+    roles: ['manager', 'staff', 'solo'],
+  },
+  {
+    id: 'calculator',
+    label: 'Калькулятор',
+    subtitle: 'Расчёт выходов и компонентов',
+    icon: '◬',
     roles: ['manager', 'staff', 'solo'],
   },
   {
@@ -81,7 +90,14 @@ export const WORKSPACE_MODULES: WorkspaceModule[] = [
     label: 'Команда',
     subtitle: 'Состав смен и роли',
     icon: '◌',
-    roles: ['manager', 'staff'],
+    roles: ['manager', 'solo'],
+  },
+  {
+    id: 'profile',
+    label: 'Профиль',
+    subtitle: 'Персональные настройки интерфейса',
+    icon: '⚙',
+    roles: ['manager', 'staff', 'solo'],
   },
 ];
 
