@@ -58,29 +58,28 @@
 }
 
 .wsv-nav__group-head {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
   color: var(--text);
-  padding: 8px 10px;
-  display: flex;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   text-align: left;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  min-height: 46px;
   cursor: pointer;
 }
 
-.wsv-nav__group-head small {
-  color: var(--muted);
-  font-size: 13px;
+.wsv-nav__group-head--open {
+  border-color: color-mix(in srgb, var(--border) 80%, transparent);
 }
 
-.wsv-nav__group-head--open {
+.wsv-nav__group-head--active {
   background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  border-color: var(--border);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 .wsv-nav__group-list {
@@ -102,16 +101,41 @@
   cursor: pointer;
 }
 
-.wsv-nav__item--compact {
-  padding: 8px 10px;
-  grid-template-columns: 24px minmax(0, 1fr);
+.wsv-nav__item--major {
+  min-height: 46px;
 }
 
-.wsv-nav__item:hover {
-  background: var(--surface-2);
+.wsv-nav__item--nested {
+  padding: 7px 10px;
+  grid-template-columns: 22px minmax(0, 1fr);
+  min-height: 36px;
+  border-radius: 12px;
+}
+
+@keyframes wsv-nav-shine {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 220% 50%;
+  }
+}
+
+.wsv-nav__item:hover,
+.wsv-nav__group-head:hover {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--surface-2) 90%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 20%, var(--surface-2)) 38%,
+    color-mix(in srgb, var(--surface-2) 88%, transparent) 72%
+  );
+  background-size: 220% 100%;
+  animation: wsv-nav-shine 1.4s linear infinite;
 }
 
 .wsv-nav__item--active {
+  animation: none;
+  background-image: none;
   background: color-mix(in srgb, var(--surface-2) 70%, transparent);
   border-color: var(--border);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent);
@@ -129,9 +153,10 @@
   background: var(--surface);
 }
 
-.wsv-nav__item--compact .wsv-nav__icon {
-  width: 24px;
-  height: 24px;
+.wsv-nav__item--nested .wsv-nav__icon {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
 }
 
 .wsv-nav__text {
@@ -154,6 +179,15 @@
   line-height: 1.2;
 }
 
+.wsv-nav__item--nested .wsv-nav__text strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wsv-nav__group-head .wsv-nav__text small {
+  display: none;
+}
+
 .wsv-sidebar__footer {
   margin-top: auto;
   border-top: 1px solid var(--border);
@@ -166,6 +200,29 @@
   gap: 4px;
 }
 
+.wsv-user--button {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.wsv-user--button:hover {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--surface-2) 90%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 20%, var(--surface-2)) 38%,
+    color-mix(in srgb, var(--surface-2) 88%, transparent) 72%
+  );
+  background-size: 220% 100%;
+  animation: wsv-nav-shine 1.4s linear infinite;
+}
+
 .wsv-user__name {
   font-size: 14px;
   font-weight: 700;
@@ -174,11 +231,6 @@
 .wsv-user__meta {
   font-size: 12px;
   color: var(--muted);
-}
-
-.wsv-user__profile {
-  margin-top: 6px;
-  align-self: flex-start;
 }
 
 .wsv-main {

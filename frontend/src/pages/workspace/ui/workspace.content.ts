@@ -24,7 +24,7 @@ export type WorkspaceModule = {
 export const WORKSPACE_MODULES: WorkspaceModule[] = [
   {
     id: 'dashboard',
-    label: 'Главная',
+    label: 'Обзор',
     subtitle: 'Сводка смены и быстрые действия',
     icon: '◈',
     roles: ['manager', 'staff', 'solo'],

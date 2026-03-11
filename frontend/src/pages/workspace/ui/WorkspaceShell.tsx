@@ -161,17 +161,22 @@ const MODULE_READ_PERMISSION: Record<WorkspaceModuleId, string | null> = {
 };
 
 const NAV_GROUPS: Array<{
-  id: 'overview' | 'ttk' | 'knowledge' | 'ops' | 'people' | 'profile';
+  id: 'ttk' | 'knowledge' | 'ops' | 'people';
   label: string;
   items: WorkspaceModuleId[];
 }> = [
-  { id: 'overview', label: 'Обзор', items: ['dashboard'] },
   { id: 'ttk', label: 'ТТК', items: ['ingredients', 'preparations', 'cocktails', 'calculator'] },
   { id: 'knowledge', label: 'Обучение', items: ['docs', 'training', 'tests'] },
   { id: 'ops', label: 'Операционка', items: ['forms'] },
   { id: 'people', label: 'Команда', items: ['team'] },
-  { id: 'profile', label: 'Профиль', items: ['profile'] },
 ];
+
+const NAV_GROUP_ICONS: Record<'ttk' | 'knowledge' | 'ops' | 'people', string> = {
+  ttk: '◎',
+  knowledge: '▲',
+  ops: '▤',
+  people: '◌',
+};
 
 type AmountDisplayMode = 'large_units' | 'small_units';
 type UserPreferences = {
@@ -415,6 +420,8 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     [can, user?.role]
   );
   const moduleById = useMemo(() => new Map(modules.map((module) => [module.id, module])), [modules]);
+  const overviewModule = useMemo(() => moduleById.get('dashboard') || null, [moduleById]);
+  const mobileModules = useMemo(() => modules.filter((item) => item.id !== 'profile'), [modules]);
   const navGroups = useMemo(
     () =>
       NAV_GROUPS
@@ -630,15 +637,12 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       const next = { ...prev };
       for (const group of navGroups) {
         if (next[group.id] === undefined) {
-          next[group.id] = true;
-        }
-        if (group.items.some((item) => item.id === activeModule)) {
-          next[group.id] = true;
+          next[group.id] = false;
         }
       }
       return next;
     });
-  }, [activeModule, navGroups]);
+  }, [navGroups]);
 
   useEffect(() => {
     try {
@@ -1269,17 +1273,17 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     setOpenNavGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   }, []);
 
-  const moduleNav = (item: WorkspaceModule, compact = false) => (
+  const moduleNav = (item: WorkspaceModule, mode: 'major' | 'nested' = 'nested') => (
     <button
       key={item.id}
       type="button"
-      className={`wsv-nav__item${item.id === activeModule ? ' wsv-nav__item--active' : ''}${compact ? ' wsv-nav__item--compact' : ''}`}
+      className={`wsv-nav__item${item.id === activeModule ? ' wsv-nav__item--active' : ''}${mode === 'major' ? ' wsv-nav__item--major' : ' wsv-nav__item--nested'}`}
       onClick={() => setActiveModule(item.id)}
     >
       <span className="wsv-nav__icon">{item.icon}</span>
       <span className="wsv-nav__text">
         <strong>{item.label}</strong>
-        {!compact ? <small>{item.subtitle}</small> : null}
+        {mode === 'major' ? <small>{item.subtitle}</small> : null}
       </span>
     </button>
   );
@@ -3193,8 +3197,8 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 })
               }
             >
-              <option value="large_units">Литры/кг (по умолчанию): 0,750 л / 0,350 кг</option>
-              <option value="small_units">Мл/г: 750 мл / 350 г</option>
+              <option value="large_units">Литры/кг (по умолчанию): 1,000 л / 1,000 кг</option>
+              <option value="small_units">Мл/г: 1 000 мл / 1 000 г</option>
             </select>
           </label>
         </div>
@@ -3249,32 +3253,33 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
         </div>
 
         <nav className="wsv-nav" aria-label="Модули">
+          {overviewModule ? moduleNav(overviewModule, 'major') : null}
           {navGroups.map((group) => {
             const expanded = openNavGroups[group.id] !== false;
+            const groupActive = group.items.some((item) => item.id === activeModule);
             return (
               <div className="wsv-nav__group" key={group.id}>
                 <button
                   type="button"
-                  className={`wsv-nav__group-head${expanded ? ' wsv-nav__group-head--open' : ''}`}
+                  className={`wsv-nav__group-head${expanded ? ' wsv-nav__group-head--open' : ''}${groupActive ? ' wsv-nav__group-head--active' : ''}`}
                   onClick={() => toggleNavGroup(group.id)}
                 >
-                  <span>{group.label}</span>
-                  <small>{expanded ? '−' : '+'}</small>
+                  <span className="wsv-nav__icon">{NAV_GROUP_ICONS[group.id]}</span>
+                  <span className="wsv-nav__text">
+                    <strong>{group.label}</strong>
+                  </span>
                 </button>
-                {expanded ? <div className="wsv-nav__group-list">{group.items.map((item) => moduleNav(item, true))}</div> : null}
+                {expanded ? <div className="wsv-nav__group-list">{group.items.map((item) => moduleNav(item, 'nested'))}</div> : null}
               </div>
             );
           })}
         </nav>
 
         <div className="wsv-sidebar__footer">
-          <div className="wsv-user">
+          <button type="button" className="wsv-user wsv-user--button" onClick={() => setActiveModule('profile')}>
             <span className="wsv-user__name">{user?.name || user?.phone || 'Пользователь'}</span>
             <span className="wsv-user__meta">{roleLabel(user?.role)} · {user?.establishment_name || 'Без заведения'}</span>
-            <button type="button" className="wsv-link wsv-user__profile" onClick={() => setActiveModule('profile')}>
-              Открыть профиль
-            </button>
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -3330,7 +3335,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
 
         {isMobile ? (
           <div className="wsv-mobile-nav" aria-label="Модули">
-            {modules.map((item) => (
+            {mobileModules.map((item) => (
               <button
                 type="button"
                 key={item.id}
