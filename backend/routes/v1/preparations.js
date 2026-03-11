@@ -262,6 +262,85 @@ r.post('/', requirePermission('preparations:create'), async (req, res) => {
   }
 });
 
+r.put('/:id', requirePermission('preparations:update'), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const est = getEstablishmentId(req);
+    if (!est) return res.status(403).json({ error: 'establishment_required' });
+
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });
+
+    const { title, yield_value, yield_unit, alt_volume, components } = req.body || {};
+    const normalizedComponents = normalizeComponents(components);
+    const normalizedYieldUnit = normalizeUnit(yield_unit);
+
+    if (!title?.trim() || normalizedComponents.length === 0) {
+      return res.status(400).json({ error: 'invalid_payload' });
+    }
+
+    for (const c of normalizedComponents) {
+      const validType = c.type === 'ingredient' || c.type === 'preparation';
+      if (!validType || !Number.isFinite(c.id) || !Number.isFinite(c.amount) || c.amount <= 0) {
+        return res.status(400).json({ error: 'invalid_component' });
+      }
+    }
+
+    const parsedAltVolume =
+      alt_volume === undefined || alt_volume === null || String(alt_volume).trim() === ''
+        ? null
+        : parsePositiveNumber(alt_volume);
+    if (alt_volume !== undefined && alt_volume !== null && String(alt_volume).trim() !== '' && parsedAltVolume === null) {
+      return res.status(400).json({ error: 'invalid_alt_volume' });
+    }
+
+    await client.query('BEGIN');
+
+    const upd = await client.query(
+      `UPDATE preparations
+          SET title=$1, yield_value=$2, yield_unit=$3, alt_volume=$4
+        WHERE id=$5 AND establishment_id=$6
+      RETURNING id`,
+      [title.trim(), yield_value ?? null, normalizedYieldUnit, parsedAltVolume, id, est]
+    );
+    if (!upd.rowCount) {
+      await client.query('ROLLBACK');
+      return res.sendStatus(404);
+    }
+
+    await client.query(`DELETE FROM preparation_components WHERE preparation_id=$1`, [id]);
+
+    const values = [];
+    const params = [id];
+
+    normalizedComponents.forEach((c, i) => {
+      const base = i * 4;
+      values.push(`($1, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`);
+      params.push(
+        c.type === 'ingredient' ? c.id : null,
+        c.type === 'preparation' ? c.id : null,
+        c.amount,
+        c.unit
+      );
+    });
+
+    await client.query(
+      `INSERT INTO preparation_components(preparation_id, ingredient_id, nested_preparation_id, amount, unit)
+       VALUES ${values.join(',')}`,
+      params
+    );
+
+    await client.query('COMMIT');
+    return res.sendStatus(200);
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('preparations.put error', e);
+    return res.status(500).json({ error: 'internal_error' });
+  } finally {
+    client.release();
+  }
+});
+
 r.get('/:id/calc', requirePermission('preparations:calc'), async (req, res) => {
   try {
     const est = getEstablishmentId(req);

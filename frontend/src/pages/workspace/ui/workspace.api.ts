@@ -537,6 +537,19 @@ export async function createPreparation(payload: CreatePreparationPayload): Prom
   });
 }
 
+export async function updatePreparation(id: number, payload: CreatePreparationPayload): Promise<void> {
+  await api(`/v1/preparations/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      title: payload.title,
+      yield_value: payload.yieldValue,
+      yield_unit: payload.yieldUnit,
+      alt_volume: payload.altVolume,
+      components: payload.components,
+    }),
+  });
+}
+
 export async function deletePreparation(id: number): Promise<void> {
   await api(`/v1/preparations/${id}`, { method: 'DELETE' });
 }

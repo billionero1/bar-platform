@@ -130,7 +130,7 @@
     color-mix(in srgb, var(--surface-2) 88%, transparent) 72%
   );
   background-size: 220% 100%;
-  animation: wsv-nav-shine 1.4s linear infinite;
+  animation: wsv-nav-shine 3.4s linear infinite;
 }
 
 .wsv-nav__item--active {
@@ -171,6 +171,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.wsv-nav__item--major .wsv-nav__text strong,
+.wsv-nav__group-head .wsv-nav__text strong {
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .wsv-nav__text small {
@@ -220,7 +226,7 @@
     color-mix(in srgb, var(--surface-2) 88%, transparent) 72%
   );
   background-size: 220% 100%;
-  animation: wsv-nav-shine 1.4s linear infinite;
+  animation: wsv-nav-shine 3.4s linear infinite;
 }
 
 .wsv-user__name {
@@ -627,6 +633,20 @@
   min-width: 680px;
 }
 
+.wsv-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.22s ease;
+}
+
+.wsv-table tbody tr:hover {
+  background: color-mix(in srgb, var(--surface-2) 65%, transparent);
+}
+
+.wsv-table tbody tr.wsv-table__row--active {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
 .wsv-table th,
 .wsv-table td {
   text-align: left;
@@ -658,6 +678,13 @@
   background: color-mix(in srgb, var(--surface) 85%, transparent);
   display: grid;
   gap: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wsv-mini-card:hover {
+  background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  border-color: color-mix(in srgb, var(--border) 70%, var(--primary) 30%);
 }
 
 .wsv-mini-card--active {

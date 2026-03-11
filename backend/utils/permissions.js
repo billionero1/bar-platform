@@ -10,6 +10,7 @@ const ROLE_PERMISSION_MATRIX = {
 
     'preparations:read',
     'preparations:create',
+    'preparations:update',
     'preparations:calc',
     'preparations:delete',
 
@@ -78,6 +79,7 @@ const ROLE_PERMISSION_MATRIX = {
 
     'preparations:read',
     'preparations:create',
+    'preparations:update',
     'preparations:calc',
     'preparations:delete',
 

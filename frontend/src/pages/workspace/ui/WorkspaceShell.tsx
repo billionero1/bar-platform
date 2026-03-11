@@ -38,6 +38,7 @@ import {
   submitQuizAttempt,
   uploadCocktailPhoto,
   updateIngredient,
+  updatePreparation,
   updateQuizQuestion,
   updateRequest,
   updateTrainingTopic,
@@ -264,10 +265,11 @@ function normalizeDisplayAmount(
   return { value: converted, unit: targetUnit };
 }
 
-function formatAmountNumber(value: number, decimals: number): string {
+function formatAmountNumber(value: number, decimals: number, useGrouping = true): string {
   return value.toLocaleString('ru-RU', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
+    useGrouping,
   });
 }
 
@@ -276,6 +278,9 @@ function formatValueByPrefs(value: number | null, unit: string | null, prefs: Us
   const normalized = normalizeDisplayAmount(value, unit, prefs);
   if (!normalized.unit) {
     return formatAmountNumber(normalized.value, 2);
+  }
+  if (normalized.unit === 'г') {
+    return `${Math.round(normalized.value)}г`;
   }
   const decimals = prefs.amountDisplayMode === 'small_units' ? 2 : 3;
   return `${formatAmountNumber(normalized.value, decimals)} ${normalized.unit}`;
@@ -328,6 +333,10 @@ function summarizeExpandedBreakdown(items: PreparationSummary['breakdown'], pref
       prefs.amountDisplayMode === 'small_units'
         ? SMALL_UNIT_BY_KIND[kind]
         : LARGE_UNIT_BY_KIND[kind];
+    if (unit === 'г') {
+      parts.push(`${Math.round(amount)}г`);
+      return;
+    }
     const decimals = prefs.amountDisplayMode === 'small_units' ? 2 : 3;
     parts.push(`${formatAmountNumber(amount, decimals)} ${unit}`);
   });
@@ -477,6 +486,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     unit: 'л',
   });
   const [editingIngredientId, setEditingIngredientId] = useState<number | null>(null);
+  const [selectedIngredientId, setSelectedIngredientId] = useState<number | null>(null);
 
   const [preparationDraft, setPreparationDraft] = useState({
     title: '',
@@ -485,6 +495,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     altVolume: '',
     components: [defaultDraftComponent()],
   });
+  const [editingPreparationId, setEditingPreparationId] = useState<number | null>(null);
 
   const [cocktailDraft, setCocktailDraft] = useState({
     title: '',
@@ -506,6 +517,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     status: 'submitted' as 'draft' | 'submitted',
   });
   const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [editingTopicId, setEditingTopicId] = useState<number | null>(null);
   const [topicDraft, setTopicDraft] = useState<TrainingTopicDraft>({
     category: 'Общее',
@@ -531,6 +543,8 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   });
   const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
   const [lastInviteInfo, setLastInviteInfo] = useState<string | null>(null);
+  const [selectedTeamMembershipId, setSelectedTeamMembershipId] = useState<number | null>(null);
+  const [selectedInviteId, setSelectedInviteId] = useState<number | null>(null);
 
   const [newEstablishmentName, setNewEstablishmentName] = useState('');
 
@@ -553,6 +567,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
   const canDeleteIngredients = can('ingredients:delete');
   const canReadPreparations = can('preparations:read');
   const canCreatePreparations = can('preparations:create');
+  const canUpdatePreparations = can('preparations:update');
   const canDeletePreparations = can('preparations:delete');
   const canReadCocktails = can('cocktails:read');
   const canCreateCocktails = can('cocktails:create');
@@ -842,6 +857,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       altVolume: '',
       components: [defaultDraftComponent()],
     });
+    setEditingPreparationId(null);
   }, []);
 
   const resetCocktailDraft = useCallback(() => {
@@ -997,6 +1013,31 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
     await loadPreparationCalc(id);
   }, [loadPreparationCalc]);
 
+  const onEditPreparation = useCallback((row: PreparationSummary) => {
+    const mappedComponents: DraftComponent[] = row.breakdown
+      .map((item): DraftComponent => {
+        const type: DraftComponent['type'] = item.type === 'preparation' ? 'preparation' : 'ingredient';
+        const unit = normalizeUnitOption(item.unit) || defaultComponentUnit(type);
+        return {
+          type,
+          id: String(item.id),
+          query: item.name,
+          amount: Number(item.amount).toString(),
+          unit,
+        };
+      })
+      .filter((item) => item.id && item.query);
+
+    setEditingPreparationId(row.id);
+    setPreparationDraft({
+      title: row.title,
+      yieldValue: row.yieldValue === null ? '' : String(row.yieldValue),
+      yieldUnit: normalizeUnitOption(row.yieldUnit) || 'л',
+      altVolume: row.altVolume === null ? '' : String(row.altVolume),
+      components: mappedComponents.length ? mappedComponents : [defaultDraftComponent()],
+    });
+  }, []);
+
   const onSelectCocktail = useCallback(async (id: number) => {
     setSelectedCocktailId(id);
     setCocktailOutput('');
@@ -1024,11 +1065,17 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
       return;
     }
 
-    await runMutate('preparation:create', async () => {
-      await createPreparation(payload);
+    const actionKey = editingPreparationId ? 'preparation:update' : 'preparation:create';
+
+    await runMutate(actionKey, async () => {
+      if (editingPreparationId) {
+        await updatePreparation(editingPreparationId, payload);
+      } else {
+        await createPreparation(payload);
+      }
       resetPreparationDraft();
     });
-  }, [resetPreparationDraft, runMutate, toPreparationPayload]);
+  }, [editingPreparationId, resetPreparationDraft, runMutate, toPreparationPayload]);
 
   const onSubmitCocktail = useCallback(async () => {
     const payload = toCocktailPayload();
@@ -1492,7 +1539,22 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 </thead>
                 <tbody>
                   {filteredIngredients.map((row) => (
-                    <tr key={row.id}>
+                    <tr
+                      key={row.id}
+                      className={selectedIngredientId === row.id ? 'wsv-table__row--active' : ''}
+                      onClick={() => {
+                        setSelectedIngredientId(row.id);
+                        if (canUpdateIngredients) {
+                          setEditingIngredientId(row.id);
+                          setIngredientDraft({
+                            name: row.name,
+                            packVolume: row.packVolume?.toString() || '',
+                            packCost: row.packCost?.toString() || '',
+                            unit: normalizeUnitOption(row.unit) || 'л',
+                          });
+                        }
+                      }}
+                    >
                       <td>{row.name}</td>
                       <td>{formatAmount(row.packVolume, row.unit)}</td>
                       <td>{formatMoney(row.costPerUnit)}</td>
@@ -1501,7 +1563,9 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                           <button
                             type="button"
                             className="wsv-link"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedIngredientId(row.id);
                               setEditingIngredientId(row.id);
                               setIngredientDraft({
                                 name: row.name,
@@ -1518,10 +1582,17 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                           <button
                             type="button"
                             className="wsv-link wsv-link--danger"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
                               if (!window.confirm(`Удалить ингредиент «${row.name}»?`)) return;
                               void runMutate('ingredient:delete', async () => {
                                 await deleteIngredient(row.id);
+                                if (selectedIngredientId === row.id) {
+                                  setSelectedIngredientId(null);
+                                }
+                                if (editingIngredientId === row.id) {
+                                  resetIngredientDraft();
+                                }
                               });
                             }}
                             disabled={isBusy('ingredient:delete')}
@@ -1871,8 +1942,15 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
 
     return (
       <div className="wsv-grid wsv-grid--dual">
-        {canCreatePreparations ? (
-          <SectionCard title="Новая заготовка">
+        {canCreatePreparations || canUpdatePreparations ? (
+          <SectionCard
+            title={editingPreparationId ? 'Редактирование заготовки' : 'Новая заготовка'}
+            right={
+              editingPreparationId ? (
+                <button type="button" className="wsv-btn" onClick={resetPreparationDraft}>Отмена</button>
+              ) : undefined
+            }
+          >
             <div className="wsv-form-grid wsv-form-grid--preparation">
               <label>
                 <span>Название</span>
@@ -1922,9 +2000,15 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 type="button"
                 className="wsv-btn wsv-btn--primary"
                 onClick={() => void onSubmitPreparation()}
-                disabled={isBusy('preparation:create')}
+                disabled={isBusy('preparation:create') || isBusy('preparation:update')}
               >
-                {isBusy('preparation:create') ? 'Сохраняю…' : 'Создать заготовку'}
+                {editingPreparationId
+                  ? isBusy('preparation:update')
+                    ? 'Сохраняю…'
+                    : 'Сохранить изменения'
+                  : isBusy('preparation:create')
+                    ? 'Сохраняю…'
+                    : 'Создать заготовку'}
               </button>
               <button type="button" className="wsv-btn" onClick={resetPreparationDraft}>Сбросить</button>
             </div>
@@ -1940,6 +2024,9 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                   <article
                     key={row.id}
                     className={`wsv-mini-card${selectedPrepId === row.id ? ' wsv-mini-card--active' : ''}`}
+                    onClick={() => {
+                      void onSelectPreparation(row.id);
+                    }}
                   >
                     <div className="wsv-mini-card__head">
                       <strong>{row.title}</strong>
@@ -1951,24 +2038,41 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                       <button
                         type="button"
                         className="wsv-link"
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();
                           void onSelectPreparation(row.id);
                           if (canUseCalculator) setActiveModule('calculator');
                         }}
                       >
                         Рассчитать
                       </button>
+                      {canUpdatePreparations ? (
+                        <button
+                          type="button"
+                          className="wsv-link"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onEditPreparation(row);
+                          }}
+                        >
+                          Редактировать
+                        </button>
+                      ) : null}
                       {canDeletePreparations ? (
                         <button
                           type="button"
                           className="wsv-link wsv-link--danger"
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.stopPropagation();
                             if (!window.confirm(`Удалить заготовку «${row.title}»?`)) return;
                             void runMutate('preparation:delete', async () => {
                               await deletePreparation(row.id);
                               if (selectedPrepId === row.id) {
                                 setSelectedPrepId(null);
                                 setPrepCalc(null);
+                              }
+                              if (editingPreparationId === row.id) {
+                                resetPreparationDraft();
                               }
                             });
                           }}
@@ -2005,6 +2109,9 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 <article
                   key={row.id}
                   className={`wsv-mini-card${selectedPrepId === row.id ? ' wsv-mini-card--active' : ''}`}
+                  onClick={() => {
+                    void onSelectPreparation(row.id);
+                  }}
                 >
                   <div className="wsv-mini-card__head">
                     <strong>{row.title}</strong>
@@ -2012,7 +2119,14 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                   </div>
                   <div className="wsv-mini-card__meta">Выход: {formatAmount(row.yieldValue, row.yieldUnit)}</div>
                   <div className="wsv-row">
-                    <button type="button" className="wsv-link" onClick={() => void onSelectPreparation(row.id)}>
+                    <button
+                      type="button"
+                      className="wsv-link"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void onSelectPreparation(row.id);
+                      }}
+                    >
                       Выбрать
                     </button>
                   </div>
@@ -2148,6 +2262,9 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 <article
                   key={row.id}
                   className={`wsv-mini-card${selectedCocktailId === row.id ? ' wsv-mini-card--active' : ''}`}
+                  onClick={() => {
+                    void onSelectCocktail(row.id);
+                  }}
                 >
                   <div className="wsv-mini-card__head">
                     <strong>{row.title}</strong>
@@ -2159,14 +2276,22 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                   <div className="wsv-mini-card__meta">Подача: {row.serving || '—'}</div>
                   <div className="wsv-mini-card__meta">Украшение: {row.garnish || '—'}</div>
                   <div className="wsv-row">
-                    <button type="button" className="wsv-link" onClick={() => void onSelectCocktail(row.id)}>
+                    <button
+                      type="button"
+                      className="wsv-link"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void onSelectCocktail(row.id);
+                      }}
+                    >
                       Открыть
                     </button>
                     {canDeleteCocktails ? (
                       <button
                         type="button"
                         className="wsv-link wsv-link--danger"
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();
                           if (!window.confirm(`Удалить карточку «${row.title}»?`)) return;
                           void runMutate('cocktail:delete', async () => {
                             await deleteCocktail(row.id);
@@ -2871,7 +2996,11 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
           {requests.length ? (
             <div className="wsv-cards">
               {requests.map((row) => (
-                <article key={row.id} className="wsv-mini-card">
+                <article
+                  key={row.id}
+                  className={`wsv-mini-card${selectedRequestId === row.id ? ' wsv-mini-card--active' : ''}`}
+                  onClick={() => setSelectedRequestId(row.id)}
+                >
                   <div className="wsv-mini-card__head">
                     <strong>{row.title}</strong>
                     <span className={`wsv-status wsv-status--${row.status}`}>
@@ -2890,7 +3019,9 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                       <button
                         type="button"
                         className="wsv-link"
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedRequestId(row.id);
                           setEditingRequestId(row.id);
                           setRequestDraft({
                             kind: row.kind,
@@ -2913,6 +3044,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                             await updateRequestStatus(row.id, status);
                           });
                         }}
+                        onClick={(event) => event.stopPropagation()}
                       >
                         {REQUEST_STATUSES_FOR_MANAGER.map((status) => (
                           <option value={status} key={status}>
@@ -2958,13 +3090,18 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                 </thead>
                 <tbody>
                   {team.rows.map((member) => (
-                    <tr key={member.membershipId}>
+                    <tr
+                      key={member.membershipId}
+                      className={selectedTeamMembershipId === member.membershipId ? 'wsv-table__row--active' : ''}
+                      onClick={() => setSelectedTeamMembershipId(member.membershipId)}
+                    >
                       <td>{member.name || 'Без имени'} {member.surname || ''}</td>
                       <td>{member.phone}</td>
                       <td>
                         {canManageTeam ? (
                           <select
                             value={member.role}
+                            onClick={(event) => event.stopPropagation()}
                             onChange={(e) => {
                               const nextRole = e.target.value === 'manager' ? 'manager' : 'staff';
                               void runMutate(`team:role:${member.membershipId}`, async () => {
@@ -2985,7 +3122,8 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                           <button
                             type="button"
                             className="wsv-link wsv-link--danger"
-                            onClick={() => {
+                            onClick={(event) => {
+                              event.stopPropagation();
                               if (!window.confirm('Отозвать доступ у сотрудника?')) return;
                               void runMutate(`team:revoke:${member.membershipId}`, async () => {
                                 await revokeTeamMember(member.membershipId);
@@ -3132,7 +3270,11 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                               : 'Активно';
 
                         return (
-                          <tr key={invite.id}>
+                          <tr
+                            key={invite.id}
+                            className={selectedInviteId === invite.id ? 'wsv-table__row--active' : ''}
+                            onClick={() => setSelectedInviteId(invite.id)}
+                          >
                             <td>{invite.invitedPhone}</td>
                             <td>{`${invite.invitedName || 'Без имени'} ${invite.invitedSurname || ''}`.trim()}</td>
                             <td>{roleLabel(invite.role)}</td>
@@ -3143,7 +3285,8 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
                                 <button
                                   type="button"
                                   className="wsv-link wsv-link--danger"
-                                  onClick={() => {
+                                  onClick={(event) => {
+                                    event.stopPropagation();
                                     if (!window.confirm('Отозвать приглашение?')) return;
                                     void runMutate(`invite:revoke:${invite.id}`, async () => {
                                       await revokeInvite(invite.id);
@@ -3198,7 +3341,7 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
               }
             >
               <option value="large_units">Литры/кг (по умолчанию): 1,000 л / 1,000 кг</option>
-              <option value="small_units">Мл/г: 1 000 мл / 1 000 г</option>
+              <option value="small_units">Мл/г: 1000 мл / 1000 г</option>
             </select>
           </label>
         </div>
@@ -3307,16 +3450,6 @@ const WorkspaceShell: React.FC<WorkspaceShellProps> = ({ layout }) => {
               aria-label={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
             >
               {theme === 'dark' ? '☀' : '◐'}
-            </button>
-
-            <button
-              type="button"
-              className="wsv-icon-btn"
-              title="Профиль"
-              aria-label="Профиль"
-              onClick={() => setActiveModule('profile')}
-            >
-              ⚙
             </button>
 
             <button
